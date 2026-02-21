@@ -1,389 +1,248 @@
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { GeneratedScript } from '../app/App';
 
-// A4 규격 (mm)
-const A4_W = 210;
-const A4_H = 297;
-const MARGIN = 14;
-const COL_GAP = 6;
-const COL_W = (A4_W - MARGIN * 2 - COL_GAP) / 2;
-
-// 역할별 색상 팔레트 (RGB)
-const CHAR_COLORS: Array<{
-  bg: [number, number, number];
-  accent: [number, number, number];
-  text: [number, number, number];
-  label: string;
-}> = [
-  { bg: [219, 234, 254], accent: [59, 130, 246], text: [29, 78, 216], label: 'blue' },
-  { bg: [252, 231, 243], accent: [236, 72, 153], text: [157, 23, 77], label: 'pink' },
-  { bg: [237, 233, 254], accent: [139, 92, 246], text: [91, 33, 182], label: 'purple' },
-  { bg: [209, 250, 229], accent: [16, 185, 129], text: [4, 120, 87], label: 'emerald' },
-  { bg: [254, 243, 199], accent: [251, 191, 36], text: [146, 64, 14], label: 'amber' },
-  { bg: [207, 250, 254], accent: [6, 182, 212], text: [14, 116, 144], label: 'cyan' },
-  { bg: [254, 226, 226], accent: [239, 68, 68], text: [153, 27, 27], label: 'rose' },
-  { bg: [224, 231, 255], accent: [99, 102, 241], text: [49, 46, 129], label: 'indigo' },
+// 역할별 색상 팔레트
+const CHAR_COLORS = [
+  { bg: '#DBEAFE', accent: '#3B82F6', text: '#1D4ED8', light: '#EFF6FF' },
+  { bg: '#FCE7F3', accent: '#EC4899', text: '#9D174D', light: '#FDF2F8' },
+  { bg: '#EDE9FE', accent: '#8B5CF6', text: '#5B21B6', light: '#F5F3FF' },
+  { bg: '#D1FAE5', accent: '#10B981', text: '#047857', light: '#ECFDF5' },
+  { bg: '#FEF3C7', accent: '#FBBF24', text: '#92400E', light: '#FFFBEB' },
+  { bg: '#CFFAFE', accent: '#06B6D4', text: '#0E7490', light: '#ECFEFF' },
+  { bg: '#FEE2E2', accent: '#EF4444', text: '#991B1B', light: '#FEF2F2' },
+  { bg: '#E0E7FF', accent: '#6366F1', text: '#312E81', light: '#EEF2FF' },
 ];
 
-function loadFont(doc: jsPDF) {
-  // 기본 폰트 사용 (한글은 별도 폰트 필요 — 여기서는 기본 latin 폰트 사용)
-  doc.setFont('helvetica');
-}
-
-function setColor(doc: jsPDF, rgb: [number, number, number]) {
-  doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-}
-
-function setFillColor(doc: jsPDF, rgb: [number, number, number]) {
-  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-}
-
-function wrapText(doc: jsPDF, text: string, maxW: number, fontSize: number): string[] {
-  doc.setFontSize(fontSize);
-  return doc.splitTextToSize(text, maxW);
-}
-
-export async function downloadScriptAsPDF(script: GeneratedScript) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  loadFont(doc);
-
-  // 캐릭터 → 색상 매핑
+function buildPDFHTML(script: GeneratedScript): string {
   const colorMap = new Map<string, typeof CHAR_COLORS[0]>();
   script.characters.forEach((c, i) => {
     colorMap.set(c.name, CHAR_COLORS[i % CHAR_COLORS.length]);
   });
 
-  let pageNum = 1;
+  const chipStyle = (bg: string, color: string) =>
+    `background:${bg};color:${color};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block;margin:2px;`;
 
-  const addPage = () => {
-    doc.addPage();
-    pageNum++;
-    drawPageFrame(doc, pageNum, script);
+  const sectionHeader = (emoji: string, title: string, accent: string) => `
+    <div style="display:flex;align-items:center;gap:8px;margin:20px 0 10px;border-bottom:2.5px solid ${accent};padding-bottom:6px;">
+      <div style="width:5px;height:22px;background:${accent};border-radius:3px;flex-shrink:0;"></div>
+      <span style="font-size:15px;font-weight:800;color:${accent};">${emoji} ${title}</span>
+    </div>`;
+
+  // ── 등장인물 카드 ──
+  const characterCards = script.characters.map((c) => {
+    const col = colorMap.get(c.name) || CHAR_COLORS[0];
+    return `
+      <div style="background:${col.bg};border:1.5px solid ${col.accent};border-radius:10px;padding:8px 10px;margin-bottom:6px;">
+        <span style="background:${col.accent};color:#fff;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;margin-right:8px;">${c.name}</span>
+        <span style="font-size:10px;color:#374151;">${c.description}</span>
+      </div>`;
+  }).join('');
+
+  // ── 핵심 용어 ──
+  const keyTermRows = script.keyTerms.map((t) => `
+    <tr>
+      <td style="background:#EDE9FE;color:#5B21B6;font-weight:700;padding:5px 8px;border:1px solid #DDD6FE;font-size:10px;white-space:nowrap;">${t.term}</td>
+      <td style="padding:5px 8px;border:1px solid #E5E7EB;font-size:10px;color:#374151;">${t.definition}</td>
+    </tr>`).join('');
+
+  // ── 대본 (2단 레이아웃) ──
+  const half = Math.ceil(script.dialogue.length / 2);
+  const leftLines = script.dialogue.slice(0, half);
+  const rightLines = script.dialogue.slice(half);
+
+  const renderDialogueLine = (line: { character: string; line: string }) => {
+    const col = colorMap.get(line.character) || CHAR_COLORS[0];
+    return `
+      <div style="margin-bottom:7px;">
+        <div style="background:${col.accent};color:#fff;display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;margin-bottom:3px;">${line.character}</div>
+        <div style="background:${col.bg};border-left:3px solid ${col.accent};border-radius:0 6px 6px 0;padding:5px 8px;font-size:10px;color:#1F2937;line-height:1.5;">${line.line}</div>
+      </div>`;
   };
 
-  // 페이지 공통 프레임
-  const drawPageFrame = (d: jsPDF, num: number, s: GeneratedScript) => {
-    // 상단 헤더 배경
-    d.setFillColor(124, 58, 237);
-    d.rect(0, 0, A4_W, 12, 'F');
-    d.setTextColor(255, 255, 255);
-    d.setFontSize(7);
-    d.setFont('helvetica', 'bold');
-    d.text(`역할극 대본 · ${s.formData.subject} · ${s.formData.gradeLevel}`, MARGIN, 8);
-    d.text(`${num} / ?`, A4_W - MARGIN, 8, { align: 'right' });
+  // ── 수업 포인트 ──
+  const teachingPointsHTML = script.teachingPoints.map((p, i) => `
+    <div style="background:#FFF7ED;border-left:3px solid #FB923C;border-radius:0 6px 6px 0;padding:5px 8px;margin-bottom:5px;font-size:10px;color:#374151;">
+      <span style="font-weight:700;color:#EA580C;">${i + 1}. </span>${p}
+    </div>`).join('');
 
-    // 하단 푸터
-    d.setFillColor(243, 228, 255);
-    d.rect(0, A4_H - 8, A4_W, 8, 'F');
-    d.setTextColor(124, 58, 237);
-    d.setFontSize(6);
-    d.setFont('helvetica', 'normal');
-    d.text('AI 역할극 대본 생성기 · MVROLEPLAY', A4_W / 2, A4_H - 2.5, { align: 'center' });
-  };
+  // ── 교사 팁 ──
+  const teacherTipsHTML = script.teacherTips.map((t) => `
+    <div style="background:#ECFDF5;border-left:3px solid #10B981;border-radius:0 6px 6px 0;padding:5px 8px;margin-bottom:5px;font-size:10px;color:#374151;">
+      <span style="color:#059669;font-weight:700;">✓ </span>${t}
+    </div>`).join('');
 
-  // ─── 1페이지: 커버 ─────────────────────────────────────────────
-  // 헤더 배경 (보라)
-  doc.setFillColor(124, 58, 237);
-  doc.rect(0, 0, A4_W, 55, 'F');
+  // ── 성취기준 ──
+  const achievementHTML = script.formData.includeAchievementStandards ? `
+    ${sectionHeader('✅', '성취기준', '#6366F1')}
+    <div style="background:#EEF2FF;border:1.5px solid #A5B4FC;border-radius:8px;padding:8px 12px;font-size:10px;color:#312E81;">
+      <span style="font-weight:700;">[${script.achievementStandards.subject}]</span> ${script.achievementStandards.standard}
+    </div>` : '';
 
-  // 제목
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('AI \uc5ed\ud560\uadf9 \ub300\ubcf8', MARGIN, 20);
+  // ── 마무리 질문 ──
+  const closingHTML = script.closingQuestions.map((q, i) => `
+    <div style="background:#FDF2F8;border-left:3px solid #EC4899;border-radius:0 6px 6px 0;padding:5px 8px;margin-bottom:5px;font-size:10px;color:#9D174D;">
+      <span style="font-weight:700;">Q${i + 1}. </span>${q}
+    </div>`).join('');
 
-  doc.setFontSize(18);
-  const titleLines = wrapText(doc, script.title, A4_W - MARGIN * 2, 18);
-  let titleY = 32;
-  titleLines.forEach(line => {
-    doc.text(line, MARGIN, titleY);
-    titleY += 9;
-  });
+  // ── 추가 옵션 배지 ──
+  const optionBadges = [
+    script.formData.includeDiscussionLeader ? '📝 토의/글쓰기 연계' : null,
+    script.formData.includeStudentTeacherLayout ? '📋 학생용/교사용 2단 구성' : null,
+    script.formData.includeAchievementStandards ? '✅ 성취기준 포함' : null,
+  ].filter(Boolean).map(b => `<span style="${chipStyle('#F3E8FF', '#7C3AED')}">${b}</span>`).join('');
 
-  // 정보 칩
-  const chips = [
-    `\uacfc\ubaa9: ${script.formData.subject}`,
-    `\ud559\ub144: ${script.formData.gradeLevel}`,
-    `\uc2dc\uac04: ${script.formData.timeMinutes}\ubd84`,
-    `\uc778\uc6d0: ${script.formData.groupSize}\uba85`,
-    `\ub4f1\uc7a5\uc778\ubb3c: ${script.formData.characterCount}\uba85`,
-  ];
-  let chipX = MARGIN;
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  chips.forEach(chip => {
-    const w = doc.getTextWidth(chip) + 6;
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(255, 255, 255);
-    doc.roundedRect(chipX, titleY + 3, w, 6.5, 1.5, 1.5, 'F');
-    doc.setTextColor(91, 33, 182);
-    doc.text(chip, chipX + 3, titleY + 7.5);
-    chipX += w + 3;
-    if (chipX > A4_W - MARGIN - 30) {
-      chipX = MARGIN;
-      titleY += 9;
-    }
-  });
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+          font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+          background: #fff;
+          color: #1F2937;
+          width: 794px; /* A4 px */
+        }
+        .page { padding: 32px 36px; }
+        table { border-collapse: collapse; width: 100%; }
+      </style>
+    </head>
+    <body>
+      <div class="page">
 
-  let y = 65;
+        <!-- ── 커버 헤더 ── -->
+        <div style="background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:12px;padding:20px 24px;margin-bottom:20px;color:#fff;">
+          <div style="font-size:10px;font-weight:600;opacity:0.85;margin-bottom:6px;">AI 역할극 대본</div>
+          <div style="font-size:22px;font-weight:900;line-height:1.3;margin-bottom:12px;">${script.title}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${chipStyle('#fff', '#7C3AED') ? `
+            <span style="${chipStyle('rgba(255,255,255,0.25)', '#fff')}">📚 ${script.formData.subject}</span>
+            <span style="${chipStyle('rgba(255,255,255,0.25)', '#fff')}">🎓 ${script.formData.gradeLevel}</span>
+            <span style="${chipStyle('rgba(255,255,255,0.25)', '#fff')}">⏱ ${script.formData.timeMinutes}분</span>
+            <span style="${chipStyle('rgba(255,255,255,0.25)', '#fff')}">👥 ${script.formData.groupSize}명</span>
+            <span style="${chipStyle('rgba(255,255,255,0.25)', '#fff')}">🎭 등장인물 ${script.formData.characterCount}명</span>
+            ` : ''}
+          </div>
+          ${optionBadges ? `<div style="margin-top:8px;">${optionBadges}</div>` : ''}
+        </div>
 
-  // ─── 상황 및 역할 설명 ───────────────────────────────────────────
-  y = drawSectionHeader(doc, '\uc0c1\ud669 \ubc0f \uc5ed\ud560 \uc124\uba85', y, [124, 58, 237]);
-  y += 1;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(31, 41, 55);
-  const sitLines = wrapText(doc, script.situationAndRole, A4_W - MARGIN * 2, 8);
-  sitLines.forEach(line => {
-    if (y > A4_H - 20) { addPage(); y = 20; }
-    doc.text(line, MARGIN, y);
-    y += 4.5;
-  });
-  y += 4;
+        <!-- ── 상황 및 역할 설명 ── -->
+        ${sectionHeader('📋', '상황 및 역할 설명', '#7C3AED')}
+        <div style="background:#F9F5FF;border-radius:8px;padding:10px 14px;font-size:10.5px;line-height:1.7;color:#374151;">${script.situationAndRole}</div>
 
-  // ─── 등장인물 ─────────────────────────────────────────────────────
-  if (y > A4_H - 40) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\ub4f1\uc7a5\uc778\ubb3c', y, [16, 185, 129]);
-  y += 2;
+        <!-- ── 등장인물 ── -->
+        ${sectionHeader('👥', '등장인물', '#10B981')}
+        ${characterCards}
 
-  const charColW = (A4_W - MARGIN * 2 - 4 * (Math.min(script.characters.length, 4) - 1)) / Math.min(script.characters.length, 4);
-  let charX = MARGIN;
-  let charRowY = y;
-  script.characters.forEach((char, i) => {
-    const color = colorMap.get(char.name) || CHAR_COLORS[0];
-    if (i > 0 && i % 4 === 0) {
-      charX = MARGIN;
-      charRowY += 22;
-      if (charRowY > A4_H - 20) { addPage(); charRowY = 20; }
-    }
-    // 카드 배경
-    setFillColor(doc, color.bg);
-    doc.setDrawColor(color.accent[0], color.accent[1], color.accent[2]);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(charX, charRowY, charColW, 18, 2, 2, 'FD');
-    // 이름 뱃지
-    doc.setFillColor(color.accent[0], color.accent[1], color.accent[2]);
-    doc.roundedRect(charX + 2, charRowY + 2, doc.getTextWidth(char.name) + 6, 5.5, 1.5, 1.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text(char.name, charX + 5, charRowY + 6.3);
-    // 설명
-    doc.setTextColor(color.text[0], color.text[1], color.text[2]);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
-    const descLines = wrapText(doc, char.description, charColW - 4, 6.5).slice(0, 2);
-    descLines.forEach((dl, di) => {
-      doc.text(dl, charX + 2, charRowY + 11 + di * 3.5);
-    });
+        <!-- ── 핵심 용어 ── -->
+        ${sectionHeader('📖', '핵심 용어', '#FBBF24')}
+        <table>
+          <thead>
+            <tr>
+              <th style="background:#7C3AED;color:#fff;padding:5px 8px;text-align:left;font-size:10px;border-radius:4px 0 0 0;">용어</th>
+              <th style="background:#7C3AED;color:#fff;padding:5px 8px;text-align:left;font-size:10px;border-radius:0 4px 0 0;">설명</th>
+            </tr>
+          </thead>
+          <tbody>${keyTermRows}</tbody>
+        </table>
 
-    charX += charColW + 4;
-  });
-  y = charRowY + 22;
-  y += 4;
+        <!-- ── 대본 (2단) ── -->
+        ${sectionHeader('🎬', '대본 내용', '#7C3AED')}
+        <div style="font-size:9px;color:#9CA3AF;margin-bottom:8px;font-style:italic;">[장면 시작] 등장인물들이 등장합니다.</div>
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;border-right:1.5px dashed #E5E7EB;padding-right:12px;">
+            ${leftLines.map(renderDialogueLine).join('')}
+          </div>
+          <div style="flex:1;">
+            ${rightLines.map(renderDialogueLine).join('')}
+          </div>
+        </div>
 
-  // ─── 핵심 용어 ────────────────────────────────────────────────────
-  if (y > A4_H - 35) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\ud575\uc2ec \uc6a9\uc5b4', y, [251, 191, 36]);
-  y += 2;
-  script.keyTerms.slice(0, 8).forEach(term => {
-    if (y > A4_H - 20) { addPage(); y = 20; }
-    doc.setFillColor(254, 252, 232);
-    doc.setDrawColor(251, 191, 36);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, y, A4_W - MARGIN * 2, 9, 1.5, 1.5, 'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(146, 64, 14);
-    doc.text(term.term, MARGIN + 3, y + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(31, 41, 55);
-    const defW = A4_W - MARGIN * 2 - doc.getTextWidth(term.term) - 12;
-    const defText = doc.splitTextToSize(term.definition, defW)[0];
-    doc.text(defText, MARGIN + doc.getTextWidth(term.term) + 8, y + 6);
-    y += 11;
-  });
-  y += 4;
+        <!-- ── 수업 포인트 ── -->
+        ${sectionHeader('📝', '수업 포인트', '#FB923C')}
+        ${teachingPointsHTML}
 
-  // ─── 대본 (2단 레이아웃) ─────────────────────────────────────────
-  if (y > A4_H - 40) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\ub300\ubcf8 \ub0b4\uc6a9', y, [124, 58, 237]);
-  y += 3;
+        <!-- ── 교사 팁 ── -->
+        ${sectionHeader('💡', '교사용 지도 팁', '#10B981')}
+        ${teacherTipsHTML}
 
-  // 2단 컬럼으로 대화 배치
-  let leftY = y;
-  let rightY = y;
-  const leftX = MARGIN;
-  const rightX = MARGIN + COL_W + COL_GAP;
+        <!-- ── 성취기준 ── -->
+        ${achievementHTML}
 
-  script.dialogue.forEach((line, idx) => {
-    const color = colorMap.get(line.character) || CHAR_COLORS[0];
-    const isLeft = idx % 2 === 0;
-    const colX = isLeft ? leftX : rightX;
-    let colY = isLeft ? leftY : rightY;
+        <!-- ── 마무리 질문 ── -->
+        ${sectionHeader('💬', '마무리 질문', '#EC4899')}
+        ${closingHTML}
 
-    // 페이지 넘김 체크
-    const textLines = wrapText(doc, line.line, COL_W - 6, 7.5);
-    const boxH = Math.max(textLines.length * 4 + 11, 16);
-
-    if (colY + boxH > A4_H - 14) {
-      addPage();
-      leftY = 20;
-      rightY = 20;
-      colY = 20;
-    }
-
-    // 캐릭터 이름 뱃지
-    const nameW = doc.getTextWidth(line.character) + 6;
-    doc.setFillColor(color.accent[0], color.accent[1], color.accent[2]);
-    doc.roundedRect(colX, colY, nameW, 5.5, 1.5, 1.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(line.character, colX + 3, colY + 4.2);
-
-    // 말풍선
-    const bubbleY = colY + 7;
-    setFillColor(doc, color.bg);
-    doc.setDrawColor(color.accent[0], color.accent[1], color.accent[2]);
-    doc.setLineWidth(0.35);
-    doc.roundedRect(colX, bubbleY, COL_W, boxH - 7, 2, 2, 'FD');
-
-    // 대사 텍스트
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(31, 41, 55);
-    textLines.forEach((tl, ti) => {
-      doc.text(tl, colX + 3, bubbleY + 5.5 + ti * 4);
-    });
-
-    const usedH = boxH + 4;
-    if (isLeft) leftY = colY + usedH;
-    else rightY = colY + usedH;
-  });
-
-  // 두 컬럼 중 더 아래로 이동
-  y = Math.max(leftY, rightY) + 4;
-
-  // ─── 2페이지 섹션: 수업 가이드 + 성취기준 ─────────────────────
-  if (y > A4_H - 40) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\uc218\uc5c5 \ud3ec\uc778\ud2b8', y, [251, 146, 60]);
-  y += 2;
-  script.teachingPoints.forEach((point, i) => {
-    if (y > A4_H - 20) { addPage(); y = 20; }
-    doc.setFillColor(255, 247, 237);
-    doc.setDrawColor(251, 146, 60);
-    doc.setLineWidth(0.3);
-    const ptLines = wrapText(doc, `${i + 1}. ${point}`, A4_W - MARGIN * 2 - 4, 7.5);
-    const ptH = ptLines.length * 4 + 5;
-    doc.roundedRect(MARGIN, y, A4_W - MARGIN * 2, ptH, 1.5, 1.5, 'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(31, 41, 55);
-    ptLines.forEach((pl, pi) => {
-      doc.text(pl, MARGIN + 3, y + 5 + pi * 4);
-    });
-    y += ptH + 3;
-  });
-  y += 3;
-
-  // 교사 팁
-  if (y > A4_H - 35) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\uad50\uc0ac\uc6a9 \uc9c0\ub3c4 \ud301', y, [16, 185, 129]);
-  y += 2;
-  script.teacherTips.forEach((tip, i) => {
-    if (y > A4_H - 20) { addPage(); y = 20; }
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(16, 185, 129);
-    doc.setLineWidth(0.3);
-    const tipLines = wrapText(doc, `✓  ${tip}`, A4_W - MARGIN * 2 - 4, 7.5);
-    const tipH = tipLines.length * 4 + 5;
-    doc.roundedRect(MARGIN, y, A4_W - MARGIN * 2, tipH, 1.5, 1.5, 'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(4, 120, 87);
-    tipLines.forEach((tl, ti) => {
-      doc.text(tl, MARGIN + 3, y + 5 + ti * 4);
-    });
-    y += tipH + 3;
-  });
-  y += 3;
-
-  // 성취기준
-  if (script.formData.includeAchievementStandards) {
-    if (y > A4_H - 35) { addPage(); y = 20; }
-    y = drawSectionHeader(doc, '\uc131\ucde8\uae30\uc900', y, [99, 102, 241]);
-    y += 2;
-    doc.setFillColor(238, 242, 255);
-    doc.setDrawColor(99, 102, 241);
-    doc.setLineWidth(0.3);
-    const stdLines = wrapText(doc, `[${script.achievementStandards.subject}] ${script.achievementStandards.standard}`, A4_W - MARGIN * 2 - 4, 7.5);
-    const stdH = stdLines.length * 4 + 5;
-    doc.roundedRect(MARGIN, y, A4_W - MARGIN * 2, stdH, 1.5, 1.5, 'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(49, 46, 129);
-    stdLines.forEach((sl, si) => {
-      doc.text(sl, MARGIN + 3, y + 5 + si * 4);
-    });
-    y += stdH + 3;
-    y += 3;
-  }
-
-  // 마무리 질문
-  if (y > A4_H - 35) { addPage(); y = 20; }
-  y = drawSectionHeader(doc, '\ub9c8\ubb34\ub9ac \uc9c8\ubb38', y, [236, 72, 153]);
-  y += 2;
-  script.closingQuestions.forEach((q, i) => {
-    if (y > A4_H - 20) { addPage(); y = 20; }
-    doc.setFillColor(253, 242, 248);
-    doc.setDrawColor(236, 72, 153);
-    doc.setLineWidth(0.3);
-    const qLines = wrapText(doc, `Q${i + 1}. ${q}`, A4_W - MARGIN * 2 - 4, 7.5);
-    const qH = qLines.length * 4 + 5;
-    doc.roundedRect(MARGIN, y, A4_W - MARGIN * 2, qH, 1.5, 1.5, 'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(157, 23, 77);
-    qLines.forEach((ql, qi) => {
-      doc.text(ql, MARGIN + 3, y + 5 + qi * 4);
-    });
-    y += qH + 3;
-  });
-
-  // 모든 페이지 하단 푸터 + 총 페이지수 업데이트
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    drawPageFrame(doc, p, script);
-    // 총 페이지수 덮어쓰기
-    doc.setFillColor(124, 58, 237);
-    doc.rect(A4_W - 28, 0, 28, 12, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${p} / ${totalPages}`, A4_W - MARGIN, 8, { align: 'right' });
-  }
-
-  const fileName = `${script.formData.subject}_${script.title.slice(0, 20)}_대본.pdf`;
-  doc.save(fileName);
+        <!-- ── 푸터 ── -->
+        <div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #E5E7EB;text-align:center;font-size:9px;color:#9CA3AF;">
+          AI 역할극 대본 생성기 · MVROLEPLAY · ${script.formData.subject} ${script.formData.gradeLevel} 맞춤 대본
+        </div>
+      </div>
+    </body>
+    </html>`;
 }
 
-function drawSectionHeader(
-  doc: jsPDF,
-  title: string,
-  y: number,
-  color: [number, number, number]
-): number {
-  doc.setFillColor(color[0], color[1], color[2]);
-  doc.rect(MARGIN, y, 3, 8, 'F');
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(color[0], color[1], color[2]);
-  doc.text(title, MARGIN + 6, y + 7);
-  // 하단 구분선
-  doc.setDrawColor(color[0], color[1], color[2]);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, y + 9.5, A4_W - MARGIN, y + 9.5);
-  return y + 13;
+export async function downloadScriptAsPDF(script: GeneratedScript) {
+  // 숨김 컨테이너에 HTML 렌더링
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1;';
+  container.innerHTML = buildPDFHTML(script);
+  document.body.appendChild(container);
+
+  // 잠시 대기 (폰트 로드)
+  await new Promise(r => setTimeout(r, 300));
+
+  const A4_W_MM = 210;
+  const A4_H_MM = 297;
+  const PX_PER_MM = 3.7795; // 1mm = 3.7795px at 96dpi
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+  // 페이지 단위로 캡처
+  const contentEl = container.querySelector('.page') as HTMLElement;
+  const totalH = contentEl.scrollHeight;
+  const pageH_px = Math.floor(A4_H_MM * PX_PER_MM); // 약 1123px
+  const pageW_px = Math.floor(A4_W_MM * PX_PER_MM);  // 약 794px
+
+  // 전체 캔버스 한 번에 캡처
+  const canvas = await html2canvas(container, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    width: 794,
+    height: totalH,
+    windowWidth: 794,
+  });
+
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  const canvasH = canvas.height;
+  const canvasW = canvas.width;
+
+  // 캔버스를 A4 페이지 단위로 잘라 PDF에 추가
+  const pageH_canvas = Math.floor(pageH_px * 2); // scale=2
+  const pages = Math.ceil(canvasH / pageH_canvas);
+
+  for (let p = 0; p < pages; p++) {
+    if (p > 0) doc.addPage();
+
+    // 해당 페이지 슬라이스 캔버스 생성
+    const sliceCanvas = document.createElement('canvas');
+    const sliceH = Math.min(pageH_canvas, canvasH - p * pageH_canvas);
+    sliceCanvas.width = canvasW;
+    sliceCanvas.height = sliceH;
+    const ctx = sliceCanvas.getContext('2d')!;
+    ctx.drawImage(canvas, 0, p * pageH_canvas, canvasW, sliceH, 0, 0, canvasW, sliceH);
+
+    const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+    const imgH_mm = (sliceH / canvasW) * A4_W_MM;
+
+    doc.addImage(sliceData, 'JPEG', 0, 0, A4_W_MM, imgH_mm);
+  }
+
+  document.body.removeChild(container);
+
+  const fileName = `${script.formData.subject}_${script.title.replace(/[\\/:*?"<>|]/g, '').slice(0, 20)}_대본.pdf`;
+  doc.save(fileName);
 }

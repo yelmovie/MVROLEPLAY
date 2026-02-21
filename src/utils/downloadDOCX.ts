@@ -214,6 +214,24 @@ export async function downloadScriptAsDOCX(script: GeneratedScript) {
         }),
       ],
     }),
+    // 추가 옵션 표시
+    ...[
+      script.formData.includeDiscussionLeader ? '📝 토의/글쓰기 연계 포함' : null,
+      script.formData.includeStudentTeacherLayout ? '📋 학생용/교사용 2단 구성 포함' : null,
+      script.formData.includeAchievementStandards ? '✅ 성취기준 포함' : null,
+    ].filter(Boolean).map(badge => new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [
+        new TextRun({
+          text: badge as string,
+          color: PURPLE,
+          size: 18,
+          bold: true,
+          font: 'Malgun Gothic',
+        }),
+      ],
+    })),
     divider(PURPLE),
   );
 
