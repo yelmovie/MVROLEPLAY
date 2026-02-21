@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Download, FileText, User as UserIcon, LogOut, CheckCircle2, ChevronDown, ChevronUp, Sparkles, BookOpen, Users2, Film, Lightbulb, GraduationCap, Award, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Download, FileText, User as UserIcon, CheckCircle2, ChevronDown, ChevronUp, Sparkles, BookOpen, Users2, Film, Lightbulb, GraduationCap, Award, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeneratedScript } from '../App';
-import { Button } from './ui/button';
 import { useState } from 'react';
+import { downloadScriptAsPDF } from '../../utils/downloadPDF';
+import { downloadScriptAsDOCX } from '../../utils/downloadDOCX';
 
 interface ScriptResultProps {
   script: GeneratedScript;
@@ -39,12 +40,26 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const handleDownloadDOCX = () => {
-    toast.info('DOCX 다운로드 기능이 곧 제공됩니다.');
+  const handleDownloadDOCX = async () => {
+    const id = toast.loading('DOCX 파일 생성 중...');
+    try {
+      await downloadScriptAsDOCX(script);
+      toast.success('DOCX 다운로드 완료!', { id });
+    } catch (e) {
+      console.error(e);
+      toast.error('DOCX 다운로드 실패. 다시 시도해 주세요.', { id });
+    }
   };
 
-  const handleDownloadPDF = () => {
-    toast.info('PDF 다운로드 기능이 곧 제공됩니다.');
+  const handleDownloadPDF = async () => {
+    const id = toast.loading('PDF 파일 생성 중...');
+    try {
+      await downloadScriptAsPDF(script);
+      toast.success('PDF 다운로드 완료!', { id });
+    } catch (e) {
+      console.error(e);
+      toast.error('PDF 다운로드 실패. 다시 시도해 주세요.', { id });
+    }
   };
 
   // Assign colors to characters
