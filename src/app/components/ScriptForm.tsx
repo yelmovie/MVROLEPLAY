@@ -384,9 +384,9 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                 </div>
               </div>
 
-              {/* Grid: Grade / Group Size / Time */}
+              {/* Grid: Grade / Group Size / Time / Character Count */}
               <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {/* Grade Level */}
                   <div>
                     <Label htmlFor="gradeLevel" className="text-sm font-bold text-[#1F2937] mb-2 block">
@@ -443,6 +443,25 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                       />
                     </div>
                   </div>
+
+                  {/* Character Count */}
+                  <div>
+                    <Label htmlFor="characterCount" className="text-sm font-bold text-[#1F2937] mb-2 block">
+                      등장인물 (3-12명)
+                    </Label>
+                    <div className="relative">
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
+                      <Input
+                        id="characterCount"
+                        type="number"
+                        min={3}
+                        max={12}
+                        value={formData.characterCount}
+                        onChange={(e) => setFormData({ ...formData, characterCount: parseInt(e.target.value) || 3 })}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -470,22 +489,8 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="px-6 pb-6 space-y-4 border-t-2 border-gray-100"
+                    className="px-6 pb-6 pt-4 space-y-2 border-t-2 border-gray-100"
                   >
-                    <div className="pt-4">
-                      <Label htmlFor="characterCount" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                        등장인물 수 (3-12명)
-                      </Label>
-                      <Input
-                        id="characterCount"
-                        type="number"
-                        min={3}
-                        max={12}
-                        value={formData.characterCount}
-                        onChange={(e) => setFormData({ ...formData, characterCount: parseInt(e.target.value) || 3 })}
-                      />
-                    </div>
-
                     <div className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gray-50 transition-all duration-300 min-h-[44px]">
                       <Checkbox
                         id="discussionLeader"
@@ -625,7 +630,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#FBBF24] font-bold">•</span>
-                    <span>인원수와 등장인물 수는 같거나 비슷하게 설정하세요</span>
+                    <span>인원수와 등장인물 수를 맞추면 모두가 역할을 맡을 수 있어요</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-[#FBBF24] font-bold">•</span>
