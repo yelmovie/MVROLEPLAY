@@ -519,24 +519,6 @@ export function Home({ onSubjectSelect, user, onLogin, onLogout }: HomeProps) {
             ))}
           </div>
 
-          {/* CTA to Subject Select */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.6 }}
-            className="text-center"
-          >
-            <motion.button
-              onClick={onSubjectSelect}
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white font-bold text-lg shadow-xl shadow-purple-300/50 transition-all"
-              whileHover={{ scale: 1.05, y: -2, boxShadow: "0 25px 30px -5px rgba(124, 58, 237, 0.4)" }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <span>과목 선택하러 가기</span>
-              <ArrowRight className="w-6 h-6" />
-            </motion.button>
-          </motion.div>
         </div>
       </section>
 
