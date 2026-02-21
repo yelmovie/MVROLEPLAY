@@ -19,11 +19,14 @@ export interface User {
 export interface ScriptFormData {
   subject: Subject;
   topic: string;
+  topicGeneratedByAI: boolean;
   gradeLevel: string;
   groupSize: number;
   timeMinutes: number;
   characterCount: number;
-  additionalNotes?: string;
+  includeDiscussionLeader: boolean;
+  includeStudentTeacherLayout: boolean;
+  includeAchievementStandards: boolean;
 }
 
 export interface GeneratedScript {

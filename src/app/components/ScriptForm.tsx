@@ -99,7 +99,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
   };
 
   const handleGenerateTopic = async () => {
-    if (!user?.accessToken) {
+    if (!user) {
       toast.error('로그인이 필요합니다.');
       return;
     }
@@ -109,10 +109,11 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     try {
       console.log('Generating topic with AI...');
       
+      const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-topic`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.accessToken}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -147,7 +148,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user?.accessToken) {
+    if (!user) {
       toast.error('로그인이 필요합니다.');
       return;
     }
@@ -157,10 +158,11 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     try {
       console.log('Calling generate script API...');
       
+      const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-script`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.accessToken}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
