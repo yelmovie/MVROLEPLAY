@@ -6,10 +6,17 @@ import * as kv from "./kv_store.tsx";
 
 const app = new Hono();
 
-// Initialize Supabase client
+// Admin client: 계정 생성/조회/인증 검증용 (service role key)
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+);
+
+// Auth client: 일반 로그인용 (anon key) — signInWithPassword는 반드시 anon key 사용
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0YWdsa2F5c2Vrd3pzZGlqY2NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxMTcxNTcsImV4cCI6MjA4MTY5MzE1N30._RpqY_-YTHiNOmdNsLxZHsqZ3vvueXN7J1wE010HBoE';
+const supabaseAuth = createClient(
+  Deno.env.get('SUPABASE_URL') ?? 'https://ptaglkaysekwzsdijcci.supabase.co',
+  SUPABASE_ANON_KEY,
 );
 
 // Create test account on startup
@@ -106,7 +113,7 @@ app.post("/make-server-9b937296/login", async (c) => {
       return c.json({ error: "Email and password are required" }, 400);
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password });
 
     if (error) {
       // If user doesn't exist, auto-create (for test account flow)
