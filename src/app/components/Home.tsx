@@ -3,15 +3,15 @@ import { motion } from 'motion/react';
 import { ArrowRight, Menu, X, LogOut, User as UserIcon, Sparkles, Zap, Download, BookOpen, Users, Heart, Globe, MessageCircle } from 'lucide-react';
 import { Subject, User } from '../App';
 import { Logo } from './Logo';
-import heroImage from 'figma:asset/e8f5fb7307f34550ab739cf8cfd7a4fdf4302e43.png';
-import feature1Bg from 'figma:asset/65bbb30be4c95ba8d93e0a08d5a3e68c354cccbc.png';
-import feature2Bg from 'figma:asset/3017ea46519b7285d91dde65c30587639448a921.png';
-import feature3Bg from 'figma:asset/a9eeade88c0c2e1fc99c60ecc87c4023591f4647.png';
-import koreanSubjectBg from 'figma:asset/d077332a32679a4891614d8b307ade48e832f521.png';
-import socialSubjectBg from 'figma:asset/2fa385bf8be504e7ee2ad7c9b7be6dc6a36516ff.png';
-import moralSubjectBg from 'figma:asset/22c679c7814cc02fa23fbed5ed9572138d121d7b.png';
-import historySubjectBg from 'figma:asset/ba64b59fe2f1620c19affe4af43549a6f8ab1b52.png';
-import englishSubjectBg from 'figma:asset/640cf98b0cee4dd32a4fb9eb08862465f1b5b925.png';
+import heroImage from '../../assets/e8f5fb7307f34550ab739cf8cfd7a4fdf4302e43.png';
+import feature1Bg from '../../assets/65bbb30be4c95ba8d93e0a08d5a3e68c354cccbc.png';
+import feature2Bg from '../../assets/3017ea46519b7285d91dde65c30587639448a921.png';
+import feature3Bg from '../../assets/a9eeade88c0c2e1fc99c60ecc87c4023591f4647.png';
+import koreanSubjectBg from '../../assets/d077332a32679a4891614d8b307ade48e832f521.png';
+import socialSubjectBg from '../../assets/2fa385bf8be504e7ee2ad7c9b7be6dc6a36516ff.png';
+import moralSubjectBg from '../../assets/22c679c7814cc02fa23fbed5ed9572138d121d7b.png';
+import historySubjectBg from '../../assets/ba64b59fe2f1620c19affe4af43549a6f8ab1b52.png';
+import englishSubjectBg from '../../assets/640cf98b0cee4dd32a4fb9eb08862465f1b5b925.png';
 
 interface HomeProps {
   onSubjectSelect: () => void;
