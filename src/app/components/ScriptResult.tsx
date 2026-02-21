@@ -305,54 +305,77 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
                 </p>
               </div>
 
-              {/* Dialogue Lines - Speech Bubbles */}
-              {script.dialogue.map((line, index) => {
-                const color = characterColorMap.get(line.character) || characterColors[0];
-                const isEven = index % 2 === 0;
-                // 캐릭터 순번 찾기 (1-based)
-                const charIdx = script.characters.findIndex(c => c.name === line.character);
-                const charNum = charIdx >= 0 ? charIdx + 1 : null;
-                
-                return (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: isEven ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`flex ${isEven ? 'justify-start' : 'justify-end'}`}
-                  >
-                    <div className={`max-w-[80%] ${isEven ? 'items-start' : 'items-end'} flex flex-col gap-1.5`}>
-                      <div className={`flex items-center gap-1.5 ${isEven ? '' : 'flex-row-reverse'}`}>
-                        {charNum && (
-                          <span className={`w-5 h-5 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0`}>
-                            {charNum}
-                          </span>
-                        )}
-                        <span className={`text-xs font-bold ${color.text}`}>
-                          {line.character}
-                        </span>
-                      </div>
-                      <div className={`p-4 rounded-2xl ${color.bubble} border-2 ${color.border} shadow-sm`}>
-                        <p className="text-[#1F2937] font-medium leading-relaxed">
-                          {line.line}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {/* Dialogue Lines - Speech Bubbles + Act Labels */}
+              {(() => {
+                const actColors: Record<string, string> = {
+                  '도입': 'from-sky-50 to-blue-50 border-sky-300 text-sky-700',
+                  '전개': 'from-amber-50 to-orange-50 border-amber-300 text-amber-700',
+                  '절정': 'from-rose-50 to-red-50 border-rose-300 text-rose-700',
+                  '결말': 'from-emerald-50 to-green-50 border-emerald-300 text-emerald-700',
+                };
+                const actEmoji: Record<string, string> = {
+                  '도입': '🌱',
+                  '전개': '🌊',
+                  '절정': '⚡',
+                  '결말': '🌈',
+                };
 
-              {/* Highlight Important Scene */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="w-5 h-5 text-[#FBBF24]" />
-                  <p className="text-sm font-bold text-[#1F2937]">[중요 포인트]</p>
-                </div>
-                <p className="text-sm text-[#1F2937] font-medium leading-relaxed">
-                  이 장면에서는 등장인물들이 서로의 입장을 이해하고 공감하는 모습을 보여줍니다. 
-                  학생들이 실제 생활에서 겪을 수 있는 상황을 연습할 수 있도록 지도해주세요.
-                </p>
-              </div>
+                return script.dialogue.map((line, index) => {
+                  // 막 구분 레이블 처리
+                  const isActLabel = line.character === '📍장면';
+                  if (isActLabel) {
+                    const actKey = Object.keys(actColors).find(k => line.line.includes(k)) || '';
+                    const colorClass = actColors[actKey] || 'from-gray-50 to-gray-100 border-gray-300 text-gray-700';
+                    const emoji = actEmoji[actKey] || '📍';
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, scaleX: 0.85 }}
+                        animate={{ opacity: 1, scaleX: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className={`flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r border-2 my-2 ${colorClass}`}
+                      >
+                        <span className="text-lg">{emoji}</span>
+                        <span className="text-sm font-bold tracking-wide">{line.line}</span>
+                      </motion.div>
+                    );
+                  }
+
+                  // 일반 대사
+                  const color = characterColorMap.get(line.character) || characterColors[0];
+                  const isEven = index % 2 === 0;
+                  const charIdx = script.characters.findIndex(c => c.name === line.character);
+                  const charNum = charIdx >= 0 ? charIdx + 1 : null;
+
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: isEven ? -20 : 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: Math.min(index * 0.03, 1) }}
+                      className={`flex ${isEven ? 'justify-start' : 'justify-end'}`}
+                    >
+                      <div className={`max-w-[80%] ${isEven ? 'items-start' : 'items-end'} flex flex-col gap-1.5`}>
+                        <div className={`flex items-center gap-1.5 ${isEven ? '' : 'flex-row-reverse'}`}>
+                          {charNum && (
+                            <span className="w-5 h-5 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                              {charNum}
+                            </span>
+                          )}
+                          <span className={`text-xs font-bold ${color.text}`}>
+                            {line.character}
+                          </span>
+                        </div>
+                        <div className={`p-4 rounded-2xl ${color.bubble} border-2 ${color.border} shadow-sm`}>
+                          <p className="text-[#1F2937] font-medium leading-relaxed">
+                            {line.line}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                });
+              })()}
             </div>
           </Section>
 

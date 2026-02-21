@@ -46,16 +46,37 @@ function buildPDFHTML(script: GeneratedScript): string {
       <td style="padding:5px 8px;border:1px solid #E5E7EB;font-size:10px;color:#374151;">${t.definition}</td>
     </tr>`).join('');
 
-  // ── 대본 (2단 레이아웃) ──
-  const half = Math.ceil(script.dialogue.length / 2);
-  const leftLines = script.dialogue.slice(0, half);
-  const rightLines = script.dialogue.slice(half);
+  // ── 대본 (순차 레이아웃 — 막 레이블 포함) ──
+  // 막 구분 배경색
+  const ACT_BG: Record<string, string> = {
+    '도입': '#EFF6FF', '전개': '#FFFBEB', '절정': '#FFF1F2', '결말': '#ECFDF5',
+  };
+  const ACT_ACCENT: Record<string, string> = {
+    '도입': '#3B82F6', '전개': '#F59E0B', '절정': '#EF4444', '결말': '#10B981',
+  };
+  const ACT_EMOJI: Record<string, string> = {
+    '도입': '🌱', '전개': '🌊', '절정': '⚡', '결말': '🌈',
+  };
 
-  const renderDialogueLine = (line: { character: string; line: string }) => {
-    const col = colorMap.get(line.character) || CHAR_COLORS[0];
+  const renderDialogueLine = (line: { character: string; line: string }, idx: number) => {
+    // 막 레이블 처리
+    if (line.character === '📍장면') {
+      const actKey = Object.keys(ACT_BG).find(k => line.line.includes(k)) || '';
+      const bg = ACT_BG[actKey] || '#F3F4F6';
+      const accent = ACT_ACCENT[actKey] || '#6B7280';
+      const emoji = ACT_EMOJI[actKey] || '📍';
+      return `
+        <div style="background:${bg};border:1.5px solid ${accent};border-radius:8px;padding:6px 12px;margin:10px 0 8px;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:13px;">${emoji}</span>
+          <span style="font-size:10px;font-weight:800;color:${accent};">${line.line}</span>
+        </div>`;
+    }
+    const col = colorMap.get(line.character) || CHAR_COLORS[idx % CHAR_COLORS.length];
+    const charIdx = script.characters.findIndex(c => c.name === line.character);
+    const numBadge = charIdx >= 0 ? `<span style="background:#7C3AED;color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;margin-right:4px;">${charIdx + 1}</span>` : '';
     return `
       <div style="margin-bottom:7px;">
-        <div style="background:${col.accent};color:#fff;display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;margin-bottom:3px;">${line.character}</div>
+        <div style="display:flex;align-items:center;margin-bottom:3px;">${numBadge}<span style="background:${col.accent};color:#fff;display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;">${line.character}</span></div>
         <div style="background:${col.bg};border-left:3px solid ${col.accent};border-radius:0 6px 6px 0;padding:5px 8px;font-size:10px;color:#1F2937;line-height:1.5;">${line.line}</div>
       </div>`;
   };
@@ -148,16 +169,11 @@ function buildPDFHTML(script: GeneratedScript): string {
           <tbody>${keyTermRows}</tbody>
         </table>
 
-        <!-- ── 대본 (2단) ── -->
+        <!-- ── 대본 ── -->
         ${sectionHeader('🎬', '대본 내용', '#7C3AED')}
-        <div style="font-size:9px;color:#9CA3AF;margin-bottom:8px;font-style:italic;">[장면 시작] 등장인물들이 등장합니다.</div>
-        <div style="display:flex;gap:12px;">
-          <div style="flex:1;border-right:1.5px dashed #E5E7EB;padding-right:12px;">
-            ${leftLines.map(renderDialogueLine).join('')}
-          </div>
-          <div style="flex:1;">
-            ${rightLines.map(renderDialogueLine).join('')}
-          </div>
+        <div style="font-size:9px;color:#9CA3AF;margin-bottom:8px;font-style:italic;">📍 [장면 시작] 등장인물들이 등장합니다.</div>
+        <div>
+          ${script.dialogue.map((line, i) => renderDialogueLine(line, i)).join('')}
         </div>
 
         <!-- ── 수업 포인트 ── -->
