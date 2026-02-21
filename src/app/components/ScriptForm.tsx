@@ -629,7 +629,21 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               max={30}
                               value={formData.groupSize}
                               onChange={(e) => {
-                                const val = Math.min(30, Math.max(1, parseInt(e.target.value) || 1));
+                                const raw = e.target.value;
+                                if (raw === '' || raw === '-') {
+                                  setFormData(prev => ({ ...prev, groupSize: 1 }));
+                                  return;
+                                }
+                                const parsed = parseInt(raw, 10);
+                                if (!isNaN(parsed)) {
+                                  const val = Math.min(30, Math.max(1, parsed));
+                                  handleCountChange(val);
+                                  setFormData(prev => ({ ...prev, groupSize: val }));
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const parsed = parseInt(e.target.value, 10);
+                                const val = isNaN(parsed) ? 1 : Math.min(30, Math.max(1, parsed));
                                 handleCountChange(val);
                                 setFormData(prev => ({ ...prev, groupSize: val }));
                               }}
@@ -651,7 +665,22 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               min={3}
                               max={20}
                               value={formData.timeMinutes}
-                              onChange={(e) => setFormData(prev => ({ ...prev, timeMinutes: Math.min(20, Math.max(3, parseInt(e.target.value) || 3)) }))}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                if (raw === '' || raw === '-') {
+                                  setFormData(prev => ({ ...prev, timeMinutes: 3 }));
+                                  return;
+                                }
+                                const parsed = parseInt(raw, 10);
+                                if (!isNaN(parsed)) {
+                                  setFormData(prev => ({ ...prev, timeMinutes: Math.min(20, Math.max(3, parsed)) }));
+                                }
+                              }}
+                              onBlur={(e) => {
+                                const parsed = parseInt(e.target.value, 10);
+                                const val = isNaN(parsed) ? 3 : Math.min(20, Math.max(3, parsed));
+                                setFormData(prev => ({ ...prev, timeMinutes: val }));
+                              }}
                               className="pl-10"
                             />
                           </div>
@@ -1015,15 +1044,21 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
               {/* Stats Card */}
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-200 shadow-md">
                 <h3 className="text-lg font-bold text-[#1F2937] mb-4">✨ 생성 통계</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="text-center p-4 bg-white rounded-xl">
                     <div className="text-2xl font-bold text-[#7C3AED] mb-1">30초</div>
-                    <div className="text-xs text-[#6B7280] font-semibold">생성 시간</div>
+                    <div className="text-xs text-[#6B7280] font-semibold">평균 생성 시간</div>
                   </div>
                   <div className="text-center p-4 bg-white rounded-xl">
                     <div className="text-2xl font-bold text-[#10B981] mb-1">100%</div>
                     <div className="text-xs text-[#6B7280] font-semibold">맞춤 제작</div>
                   </div>
+                </div>
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <span className="text-base mt-0.5 flex-shrink-0">⏳</span>
+                  <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                    시간이 길거나 인원이 많을수록 생성에 최대 1~2분이 걸릴 수 있어요. 조금만 기다려 주세요!
+                  </p>
                 </div>
               </div>
             </motion.div>

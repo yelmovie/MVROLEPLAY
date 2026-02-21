@@ -150,7 +150,7 @@ export function Home({ onSubjectSelect, user, onLogin, onLogout }: HomeProps) {
               <Logo className="w-10 h-10 sm:w-12 sm:h-12" />
               <div>
                 <h1 className="text-lg sm:text-xl font-bold text-[#1F2937] tracking-tight">
-                  MovieSsam Play Lab
+                  Roleplay Snap
                 </h1>
                 <p className="text-xs text-[#6B7280] hidden sm:block font-medium">AI 역할극 대본 생성기</p>
               </div>
@@ -359,7 +359,7 @@ export function Home({ onSubjectSelect, user, onLogin, onLogout }: HomeProps) {
             className="text-center mb-12"
           >
             <h3 className="text-3xl sm:text-4xl font-bold text-[#1F2937] mb-4 tracking-tight">
-              왜 MovieSsam인가요?
+              왜 Roleplay Snap인가요?
             </h3>
             <p className="text-lg text-[#6B7280] font-medium">
               교사의 시간을 아끼고, 수업의 질을 높입니다
@@ -527,13 +527,13 @@ export function Home({ onSubjectSelect, user, onLogin, onLogout }: HomeProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Logo className="w-10 h-10" />
-            <span className="font-bold text-[#1F2937] text-xl">MovieSsam Play Lab</span>
+            <span className="font-bold text-[#1F2937] text-xl">Roleplay Snap</span>
           </div>
           <p className="text-sm text-[#6B7280] mb-2 font-medium">
             초등학교 교사를 위한 AI 역할극 대본 생성기
           </p>
           <p className="text-xs text-[#9CA3AF]">
-            © 2024 MovieSsam Play Lab. All rights reserved.
+            © 2026 Roleplay Snap. All rights reserved.
           </p>
         </div>
       </footer>
