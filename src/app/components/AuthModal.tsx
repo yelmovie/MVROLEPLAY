@@ -49,7 +49,9 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
 
     setIsLoading(true);
     try {
-      await onLogin(email, password, name);
+      await onLogin(email, password, isLogin ? undefined : name);
+    } catch (err: any) {
+      setError(err.message || '로그인 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }

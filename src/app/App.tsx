@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { Home } from './components/Home';
 import { SubjectSelect } from './components/SubjectSelect';
 import { ScriptForm } from './components/ScriptForm';
 import { ScriptResult } from './components/ScriptResult';
 import { AuthModal } from './components/AuthModal';
+import { projectId } from '/utils/supabase/info';
 
 export type Subject = '국어' | '사회' | '도덕' | '역사' | '영어';
 
@@ -49,12 +50,49 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const handleLogin = async (email: string, _password: string, name?: string) => {
-    setUser({
-      email,
-      name: name || email.split('@')[0],
-    });
-    setShowAuthModal(false);
+  const handleLogin = async (email: string, password: string, name?: string) => {
+    const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-9b937296`;
+
+    try {
+      // 회원가입 모드인 경우 먼저 계정 생성
+      if (name) {
+        const signupRes = await fetch(`${baseUrl}/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name }),
+        });
+        if (!signupRes.ok) {
+          const err = await signupRes.json();
+          // 이미 존재하는 계정이면 로그인으로 계속 진행
+          if (!err.error?.includes('already')) {
+            throw new Error(err.error || '회원가입 실패');
+          }
+        }
+      }
+
+      // 로그인
+      const loginRes = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const loginData = await loginRes.json();
+
+      if (!loginRes.ok) {
+        throw new Error(loginData.error || '로그인 실패');
+      }
+
+      setUser({
+        email: loginData.user.email,
+        name: loginData.user.name || name || email.split('@')[0],
+        accessToken: loginData.accessToken,
+      });
+      setShowAuthModal(false);
+      toast.success(`환영합니다, ${loginData.user.name || name || email.split('@')[0]}님!`);
+    } catch (err: any) {
+      throw new Error(err.message || '로그인 중 오류가 발생했습니다.');
+    }
   };
 
   const handleLogout = () => {

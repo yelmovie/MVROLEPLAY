@@ -97,6 +97,40 @@ app.post("/make-server-9b937296/signup", async (c) => {
   }
 });
 
+// Login endpoint
+app.post("/make-server-9b937296/login", async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      // If user doesn't exist, auto-create (for test account flow)
+      if (error.message.includes('Invalid login credentials')) {
+        return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401);
+      }
+      console.log(`Login error: ${error.message}`);
+      return c.json({ error: error.message }, 400);
+    }
+
+    console.log(`User logged in successfully: ${email}`);
+    return c.json({
+      user: {
+        email: data.user.email,
+        name: data.user.user_metadata?.name || data.user.email?.split('@')[0],
+      },
+      accessToken: data.session.access_token,
+    });
+  } catch (error) {
+    console.log(`Login server error: ${error}`);
+    return c.json({ error: "Internal server error during login" }, 500);
+  }
+});
+
 // Generate topic with OpenAI GPT-4o-mini API
 app.post("/make-server-9b937296/generate-topic", async (c) => {
   try {
