@@ -261,9 +261,10 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
     });
 
     // Create prompt for OpenAI API
-    // 1분당 평균 대사 12줄, 각 대사 평균 50자 기준
-    const minDialogueCount = Math.max(formData.timeMinutes * 12, 24);
-    const expectedDialogueLength = formData.timeMinutes * 600;
+    // 1분당 평균 대사 15줄, 각 대사 평균 80자 기준 → A4 5~6장 목표
+    const minDialogueCount = Math.max(formData.timeMinutes * 15, 40);
+    const expectedDialogueLength = formData.timeMinutes * 900;
+    const a4Pages = Math.round(formData.timeMinutes / 4); // 4분 = 1장 기준
     const isEnglish = formData.subject === '영어';
     const characterCount = formData.characterCount || formData.groupSize || 5;
 
@@ -311,18 +312,21 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
       '  막3: "[절정 - 위기] 장면 지문"\n' +
       '  막4: "[결말 - 해소와 성찰] 장면 지문"';
 
-    // 공통 대사 규칙 (시간 비례 강제)
+    // 공통 대사 규칙 (시간 비례 강제 + A4 분량 기준)
+    const perCharMin = Math.floor(minDialogueCount / characterCount);
     const dialogueRules =
-      '★ 대사 수량 필수 준수 ★\n' +
-      '- 공연 시간 ' + formData.timeMinutes + '분에 맞춰 대사를 충분히 생성\n' +
-      '- 전체 대사 수: 반드시 최소 ' + minDialogueCount + '개 이상 (4막 레이블 제외, 실제 대사만 카운트)\n' +
+      '★★★ 대사 분량 절대 준수 — A4 ' + a4Pages + '장 이상 ★★★\n' +
+      '- 공연 시간 ' + formData.timeMinutes + '분 → 실제 대사 최소 ' + minDialogueCount + '개 이상 (막 레이블 제외)\n' +
       '- 총 대사 글자 수: 최소 ' + expectedDialogueLength + '자 이상\n' +
-      '- 각 대사: 최소 30자 이상의 실질적 대사\n' +
-      '- 등장인물 ' + characterCount + '명 모두에게 대사 균등 배분 (인물당 최소 ' + Math.floor(minDialogueCount / characterCount) + '개 이상)\n' +
-      '- 아이들 실제 말투 사용 (존댓말.반말 캐릭터별 구분)\n' +
-      '- 감정 지문 괄호 표시: (울먹이며), (화나서), (용기를 내서)\n' +
-      '- 짧은 대사 + 긴 감정 대사 섞어 극적 리듬 만들기\n' +
-      '- 교훈 설명 대사 금지. 행동.감정으로만 표현';
+      '- 각 대사는 반드시 2~4문장 이상으로 구성 (단답 1문장 대사 금지)\n' +
+      '- 한 대사의 최소 길이: 80자 이상\n' +
+      '- 등장인물 ' + characterCount + '명 균등 배분: 인물당 최소 ' + perCharMin + '대사 이상\n' +
+      '- 감정 지문 필수: (울먹이며), (화나서), (억울하게), (용기를 내서), (눈물을 참으며) 등\n' +
+      '- 극적 리듬: 짧은 반박/단문 대사(30자 미만)는 전체의 20% 이하로 제한\n' +
+      '- 아이들 실제 말투 사용: 존댓말·반말 캐릭터별로 일관되게 구분\n' +
+      '- 인물 간 주고받는 대화(반응형 대사) 충분히 포함 — 독백 연속 3개 이상 금지\n' +
+      '- 교훈을 대사로 설명하지 말 것. 행동·감정·결과로만 표현\n' +
+      '- 각 막의 마지막 장면에 감정이 고조되는 클라이맥스 대사 삽입';
 
     // 과목별 프롬프트와 시스템 메시지 구성
     let prompt = '';
@@ -331,13 +335,14 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
     if (formData.subject === '국어') {
       systemContent =
         '당신은 초등학교 국어과 교육연극 전문 극작가입니다.\n' +
-        '말하기.듣기.읽기.쓰기 국어 역량이 극의 갈등과 해결 속에서 자연스럽게 드러나는 희곡 대본을 씁니다.\n' +
+        '말하기·듣기·읽기·쓰기 국어 역량이 극의 갈등과 해결 속에서 자연스럽게 드러나는 희곡 대본을 씁니다.\n' +
+        '대본은 A4 ' + a4Pages + '장 이상의 충분한 분량으로 작성하며, 각 대사는 2~4문장 이상으로 구성합니다.\n' +
         '항상 유효한 JSON 형식으로 응답합니다.';
       prompt =
         '초등학교 국어과 교육 연극 대본을 작성해주세요.\n\n' +
         '[국어 역할극 핵심]\n' +
         '- 목표: 실제 아이들의 학교 이야기를 희곡(연극 대본) 형식으로 표현\n' +
-        '- 국어 역량(말하기.듣기.읽기.쓰기)이 극의 사건 속에서 자연스럽게 등장해야 함\n' +
+        '- 국어 역량(말하기·듣기·읽기·쓰기)이 극의 사건 속에서 자연스럽게 등장\n' +
         '- 예: 발표를 못하는 아이의 갈등, 잘못 전달된 말 한마디로 벌어지는 오해, 글쓰기로 마음을 전하는 장면\n' +
         '- 희곡 형식 준수: 지문(무대 지시), 대사, 막 구성\n\n' +
         '[대본 조건]\n' +
@@ -345,30 +350,31 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 주제: ' + formData.topic + '\n' +
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
-        '- 공연 시간: ' + formData.timeMinutes + '분\n' +
+        '- 공연 시간: ' + formData.timeMinutes + '분 → 대사 최소 ' + minDialogueCount + '개, 총 글자 ' + expectedDialogueLength + '자 이상\n' +
         '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
-        '[4막 구조]\n' +
-        '막1 도입(발단): 등장인물 소개, 국어 역량 관련 상황의 씨앗 심기 (전체 대사 20%)\n' +
-        '막2 전개(갈등 심화): 말.글.소통 문제로 오해나 갈등 깊어짐 (35%)\n' +
-        '막3 절정(위기): 감정 폭발 또는 결정적 선택 (25%)\n' +
-        '막4 결말(해소와 성찰): 올바른 표현.소통으로 해결, 국어 역량의 가치 깨달음 (20%)\n\n' +
+        '[4막 구조 — 각 막마다 충분한 대사 분량 필수]\n' +
+        '막1 도입(발단) — 전체 대사의 약 20%: 등장인물 소개, 상황 설명, 국어 역량 관련 갈등의 씨앗. 인물들이 서로 충분히 대화하며 관계와 성격을 드러낼 것\n' +
+        '막2 전개(갈등 심화) — 약 35%: 말·글·소통 문제로 오해나 갈등이 단계적으로 깊어짐. 각 인물의 입장과 감정이 충돌하는 대화를 다수 포함\n' +
+        '막3 절정(위기) — 약 25%: 감정이 최고조에 달하는 대치 또는 결정적 선택의 순간. 강렬한 감정 대사와 긴 독백형 대사 포함\n' +
+        '막4 결말(해소와 성찰) — 약 20%: 올바른 표현·소통으로 해결, 국어 역량의 가치를 행동으로 깨달음. 마무리 대사는 여운이 남을 것\n\n' +
         '[대사 규칙]\n' + dialogueRules + '\n\n' +
         '다음 JSON 형식으로 응답해주세요:\n' + jsonBlock;
 
     } else if (formData.subject === '사회') {
       systemContent =
         '당신은 초등학교 사회과 교육연극 전문 극작가입니다.\n' +
-        '민주주의.인권.경제.공동체.지역사회.법 등 추상적 사회 개념을 갈등 상황으로 구체화합니다.\n' +
+        '민주주의·인권·경제·공동체·지역사회·법 등 추상적 사회 개념을 갈등 상황으로 구체화합니다.\n' +
         '학생들이 역할 연기로 사회 개념을 몸으로 이해하는 대본을 씁니다.\n' +
+        '대본은 A4 ' + a4Pages + '장 이상의 충분한 분량으로 작성하며, 각 대사는 2~4문장 이상으로 구성합니다.\n' +
         '항상 유효한 JSON 형식으로 응답합니다.';
       prompt =
         '초등학교 사회과 교육 연극 대본을 작성해주세요.\n\n' +
         '[사회 역할극 핵심]\n' +
-        '- 목표: 사회 개념(민주주의.인권.경제.공동체.지역사회.법.문화)을 갈등을 통해 직접 경험\n' +
-        '- 추상 개념이 실제 사건.갈등으로 등장해야 함 (개념 설명 금지, 체험으로 이해)\n' +
+        '- 목표: 사회 개념(민주주의·인권·경제·공동체·지역사회·법·문화)을 갈등을 통해 직접 경험\n' +
+        '- 추상 개념이 실제 사건·갈등으로 등장해야 함 (개념 설명 금지, 체험으로 이해)\n' +
         '- 인물들이 사회 구성원(시민, 소비자, 지역 주민, 대표 등)으로 등장\n' +
         '- 가치 충돌(선/악 구도 아님) — 각 인물이 이해 가능한 이유로 행동\n\n' +
         '[대본 조건]\n' +
@@ -376,31 +382,32 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 주제: ' + formData.topic + '\n' +
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
-        '- 공연 시간: ' + formData.timeMinutes + '분\n' +
+        '- 공연 시간: ' + formData.timeMinutes + '분 → 대사 최소 ' + minDialogueCount + '개, 총 글자 ' + expectedDialogueLength + '자 이상\n' +
         '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
-        '[4막 구조]\n' +
-        '막1 도입(발단): 사회적 상황 소개, 이해관계 다른 인물들 등장 (전체 대사 20%)\n' +
-        '막2 전개(갈등 심화): 사회 개념 관련 갈등.대립.불공정 심화 (35%)\n' +
-        '막3 절정(위기): 결정적 선택 - 투표, 협상, 항의, 양보 중 선택 (25%)\n' +
-        '막4 결말(해소와 성찰): 민주적 해결.합의, 사회 개념의 의미 행동으로 깨달음 (20%)\n\n' +
+        '[4막 구조 — 각 막마다 충분한 대사 분량 필수]\n' +
+        '막1 도입(발단) — 약 20%: 사회적 상황 소개, 이해관계가 다른 인물들 등장. 서로의 입장 차이를 충분한 대화로 드러낼 것\n' +
+        '막2 전개(갈등 심화) — 약 35%: 사회 개념 관련 갈등·대립·불공정 단계적 심화. 각 인물이 자신의 이해관계를 근거로 주장하는 긴 대사 포함\n' +
+        '막3 절정(위기) — 약 25%: 결정적 선택의 순간 — 투표, 협상, 항의, 양보. 감정이 최고조에 달하는 대치 장면\n' +
+        '막4 결말(해소와 성찰) — 약 20%: 민주적 해결·합의, 사회 개념의 의미를 행동으로 깨달음. 여운이 남는 마무리\n\n' +
         '[대사 규칙]\n' + dialogueRules + '\n\n' +
         '다음 JSON 형식으로 응답해주세요:\n' + jsonBlock;
 
     } else if (formData.subject === '도덕') {
       systemContent =
         '당신은 초등학교 도덕과 교육연극 전문 극작가입니다.\n' +
-        '도덕적 딜레마 상황에서 인물들이 갈등하고, 잘못된 선택->후회->깨달음의 여정을 보여줍니다.\n' +
+        '도덕적 딜레마 상황에서 인물들이 갈등하고, 잘못된 선택→후회→깨달음의 여정을 보여줍니다.\n' +
         '교훈을 설명하지 않고, 인물의 행동과 결과로 도덕적 가치를 느끼게 합니다.\n' +
+        '대본은 A4 ' + a4Pages + '장 이상의 충분한 분량으로 작성하며, 각 대사는 2~4문장 이상으로 구성합니다.\n' +
         '항상 유효한 JSON 형식으로 응답합니다.';
       prompt =
         '초등학교 도덕과 교육 연극 대본을 작성해주세요.\n\n' +
         '[도덕 역할극 핵심]\n' +
         '- 목표: 도덕적 딜레마 상황에서 스스로 옳고 그름을 판단, 올바른 가치를 내면화\n' +
-        '- 핵심 도덕 가치(정직.배려.용기.공감.책임.존중.정의.우정)가 갈등 속에서 시험받아야 함\n' +
-        '- 인물이 쉬운 선택(거짓말, 방관, 이기심)과 어려운 선택(용기, 고백, 희생) 사이에서 갈등\n' +
+        '- 핵심 도덕 가치(정직·배려·용기·공감·책임·존중·정의·우정)가 갈등 속에서 시험받아야 함\n' +
+        '- 인물이 쉬운 선택(거짓말, 방관, 이기심)과 어려운 선택(용기, 고백, 희생) 사이에서 깊이 갈등\n' +
         '- 교훈을 대사로 설명하지 않고, 선택과 그 결과로 도덕적 의미 전달\n' +
         '- 모든 인물이 이해 가능한 이유로 행동 (선악 구도 금지)\n\n' +
         '[대본 조건]\n' +
@@ -408,16 +415,16 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 주제: ' + formData.topic + '\n' +
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
-        '- 공연 시간: ' + formData.timeMinutes + '분\n' +
+        '- 공연 시간: ' + formData.timeMinutes + '분 → 대사 최소 ' + minDialogueCount + '개, 총 글자 ' + expectedDialogueLength + '자 이상\n' +
         '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
-        '[4막 구조]\n' +
-        '막1 도입(발단): 평범한 일상 속 도덕적 딜레마의 씨앗 - 유혹이나 어려운 선택의 시작 (전체 대사 20%)\n' +
-        '막2 전개(갈등 심화): 잘못된 선택 또는 방관이 가져오는 결과, 내면 갈등 심화 (35%)\n' +
-        '막3 절정(위기): 진실 앞에 서는 순간 - 계속 숨길 것인가, 용기 내어 고백할 것인가 (25%)\n' +
-        '막4 결말(해소와 성찰): 용기 있는 선택->관계 회복->도덕적 가치 깨달음 (설명 없이 행동으로) (20%)\n\n' +
+        '[4막 구조 — 각 막마다 충분한 대사 분량 필수]\n' +
+        '막1 도입(발단) — 약 20%: 평범한 일상 속 도덕적 딜레마의 씨앗. 유혹이나 어려운 선택의 시작. 인물들의 평소 관계와 성격이 대화로 충분히 드러날 것\n' +
+        '막2 전개(갈등 심화) — 약 35%: 잘못된 선택 또는 방관이 가져오는 결과, 내면 갈등 심화. 인물들 사이의 오해·다툼·설득 시도가 긴 대화로 이어질 것\n' +
+        '막3 절정(위기) — 약 25%: 진실 앞에 서는 결정적 순간. 계속 숨길 것인가, 용기 내어 고백할 것인가. 내면의 갈등을 드러내는 독백과 충돌 대사\n' +
+        '막4 결말(해소와 성찰) — 약 20%: 용기 있는 선택→관계 회복→도덕적 가치를 설명 없이 행동으로. 여운 있는 마무리\n\n' +
         '[대사 규칙]\n' + dialogueRules + '\n\n' +
         '다음 JSON 형식으로 응답해주세요:\n' + jsonBlock;
 
@@ -426,12 +433,13 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '당신은 초등학교 역사과 교육연극 전문 극작가입니다.\n' +
         '역사적 시대와 사건을 그 시대 인물들의 시각에서 직접 경험하는 역사극을 씁니다.\n' +
         '역사적 사실에 충실하되, 그 시대 사람들의 감정과 선택을 극적으로 표현합니다.\n' +
+        '대본은 A4 ' + a4Pages + '장 이상의 충분한 분량으로 작성하며, 각 대사는 2~4문장 이상으로 구성합니다.\n' +
         '항상 유효한 JSON 형식으로 응답합니다.';
       prompt =
         '초등학교 역사과 교육 연극 대본을 작성해주세요.\n\n' +
         '[역사 역할극 핵심]\n' +
         '- 목표: 역사적 시대와 사건을 그 시대 인물들의 눈으로 직접 경험\n' +
-        '- 역사적 사실과 시대 배경이 정확해야 하며, 그 시대 사람들의 생각.감정.선택이 중심\n' +
+        '- 역사적 사실과 시대 배경이 정확해야 하며, 그 시대 사람들의 생각·감정·선택이 중심\n' +
         '- 교과서 암기가 아닌 역사적 인물들의 삶 속으로 들어가는 체험\n' +
         '- 시대적 말투와 표현 방식 반영 (현대적이지 않게, 하지만 이해 가능한 수준)\n' +
         '- 역사적 사건의 의미를 마지막에 내레이터나 시 형식으로 정리 가능\n\n' +
@@ -440,16 +448,16 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 주제: ' + formData.topic + '\n' +
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
-        '- 공연 시간: ' + formData.timeMinutes + '분\n' +
+        '- 공연 시간: ' + formData.timeMinutes + '분 → 대사 최소 ' + minDialogueCount + '개, 총 글자 ' + expectedDialogueLength + '자 이상\n' +
         '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
-        '[4막 구조]\n' +
-        '막1 도입(발단): 시대.장소.인물 소개, 역사적 사건의 씨앗 (고요한 일상 속 긴장감) (전체 대사 20%)\n' +
-        '막2 전개(갈등 심화): 역사적 사건 본격 전개, 인물들의 선택과 갈등 (35%)\n' +
-        '막3 절정(위기): 역사적 결정의 순간 - 행동할 것인가 침묵할 것인가, 목숨을 건 선택 (25%)\n' +
-        '막4 결말(해소와 성찰): 역사적 결과와 의미, 오늘날과 연결되는 울림 (20%)\n\n' +
+        '[4막 구조 — 각 막마다 충분한 대사 분량 필수]\n' +
+        '막1 도입(발단) — 약 20%: 시대·장소·인물 소개. 고요한 일상 속 역사적 사건의 긴장감. 그 시대 삶을 구체적으로 보여주는 대화 충분히 포함\n' +
+        '막2 전개(갈등 심화) — 약 35%: 역사적 사건 본격 전개. 인물들의 선택과 갈등이 구체적 대화로 이어질 것. 두려움·분노·슬픔 등 감정이 섞인 긴 대사\n' +
+        '막3 절정(위기) — 약 25%: 역사적 결정의 순간. 행동할 것인가 침묵할 것인가, 목숨을 건 선택. 강렬한 감정 대사와 인물 간 설득·갈등 대화\n' +
+        '막4 결말(해소와 성찰) — 약 20%: 역사적 결과와 의미, 오늘날과 연결되는 울림. 마지막에 내레이터가 역사적 의미를 시적으로 정리\n\n' +
         '[대사 규칙]\n' + dialogueRules + '\n\n' +
         '다음 JSON 형식으로 응답해주세요:\n' + jsonBlock;
 
@@ -459,6 +467,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         'You are an award-winning elementary school English drama specialist.\n' +
         'You write scripts where TARGET English expressions appear NATURALLY and REPEATEDLY.\n' +
         'Students learn by speaking English in context, not through drills.\n' +
+        'Each dialogue line must be 2~4 sentences minimum. Aim for A4 ' + a4Pages + '+ pages.\n' +
         'Always respond in valid JSON format.';
       const engJsonBlock =
         '{\n' +
@@ -504,15 +513,17 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         'Act 3 - Crisis (25%): Peak moment requiring target language\n' +
         'Act 4 - Resolution (20%): Genuine resolution, target expressions used meaningfully\n\n' +
         '[DIALOGUE RULES]\n' +
-        '★ MANDATORY DIALOGUE VOLUME ★\n' +
+        '★★★ MANDATORY DIALOGUE VOLUME — A4 ' + a4Pages + '+ pages ★★★\n' +
         '- Performance duration: ' + formData.timeMinutes + ' minutes\n' +
         '- Total dialogue lines: MINIMUM ' + minDialogueCount + ' lines (act labels not counted)\n' +
         '- Total dialogue length: MINIMUM ' + expectedDialogueLength + ' characters\n' +
-        '- Each line: minimum 30 characters\n' +
+        '- Each line: 2~4 sentences minimum, at least 80 characters\n' +
+        '- NO single-sentence dialogue lines allowed\n' +
         '- ALL dialogue in natural English (appropriate for ' + formData.gradeLevel + ' Korean learners)\n' +
         '- Spread evenly: ' + characterCount + ' characters, minimum ' + Math.floor(minDialogueCount / characterCount) + ' lines each\n' +
         '- Korean emotion cues in parentheses: (놀라며), (화가 나서), (기쁘게)\n' +
-        '- Mix simple (A2) and slightly challenging (B1) sentences\n\n' +
+        '- Mix simple (A2) and slightly challenging (B1) sentences\n' +
+        '- Include reactive/responsive dialogues — no 3+ consecutive monologues\n\n' +
         'Respond in this exact JSON format:\n' + engJsonBlock;
     }
 
@@ -537,8 +548,8 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
             content: prompt
           }
         ],
-        temperature: 0.92,
-        max_tokens: Math.min(16000, Math.max(8000, formData.timeMinutes * 800)),
+        temperature: 0.88,
+        max_tokens: 16000,
         response_format: { type: "json_object" }
       }),
     });
