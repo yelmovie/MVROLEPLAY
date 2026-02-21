@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2, Plus, Trash2, Pencil, Check, X, Shuffle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Subject, ScriptFormData, GeneratedScript, CustomCharacter } from '../App';
 import { Input } from './ui/input';
@@ -101,6 +101,42 @@ function makeDefaultChars(count: number): CustomCharacter[] {
   }));
 }
 
+// 자동 이름 프리셋
+const namePresets: { label: string; emoji: string; names: string[] }[] = [
+  {
+    label: '한국 학생 이름',
+    emoji: '🧒',
+    names: ['민준', '서연', '지호', '유진', '재원', '하은', '도현', '나영', '성민', '수아',
+            '태양', '지아', '현우', '예린', '민서', '준혁', '소율', '동현', '채원', '시우',
+            '건우', '지윤', '하준', '서현', '민재', '예나', '우진', '다은', '진우', '혜리'],
+  },
+  {
+    label: '역할/직함',
+    emoji: '🎭',
+    names: ['나레이터', '선생님', '학생 1', '학생 2', '학생 3', '반장', '부반장', '전학생',
+            '학부모', '교장선생님', '친구 A', '친구 B', '친구 C', '이웃', '가게 주인',
+            '경찰관', '의사', '기자', '시장', '할머니', '할아버지', '형', '언니', '동생', '엄마',
+            '아빠', '코치', '심판', '관객', '사회자'],
+  },
+  {
+    label: '역사 인물풍',
+    emoji: '⚔️',
+    names: ['백성 갑', '백성 을', '양반 어르신', '선비', '왕', '신하', '장군', '병사',
+            '상인', '농부', '어부', '스님', '궁녀', '내관', '이방', '포졸', '의원',
+            '학동', '훈장', '향리', '감사', '원님', '사또', '봉이', '홍이', '돌쇠', '막동',
+            '분이', '순이'],
+  },
+  {
+    label: '영어 이름',
+    emoji: '🌍',
+    names: ['Minjun', 'Soyeon', 'Jake', 'Emma', 'Junho', 'Lily', 'Tom', 'Anna',
+            'Kevin', 'Mia', 'Daniel', 'Grace', 'Chris', 'Jenny', 'Sam', 'Amy',
+            'Teacher Kim', 'Narrator', 'Student A', 'Student B', 'Student C',
+            'Shop Owner', 'Doctor', 'Parent', 'Friend 1', 'Friend 2',
+            'Classmate', 'Principal', 'Librarian', 'Coach'],
+  },
+];
+
 export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: ScriptFormProps) {
   const [formData, setFormData] = useState<ScriptFormData>({
     subject,
@@ -122,6 +158,45 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
   const [activeTab, setActiveTab] = useState<'settings' | 'characters'>('settings');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [showPresetMenu, setShowPresetMenu] = useState(false);
+  const presetMenuRef = useRef<HTMLDivElement>(null);
+
+  // 프리셋 메뉴 외부 클릭 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (presetMenuRef.current && !presetMenuRef.current.contains(e.target as Node)) {
+        setShowPresetMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // 프리셋 자동 적용
+  const handleApplyPreset = (preset: typeof namePresets[number]) => {
+    setFormData(prev => ({
+      ...prev,
+      customCharacters: prev.customCharacters.map((char, i) => ({
+        ...char,
+        name: preset.names[i] ?? char.name,
+      })),
+    }));
+    setShowPresetMenu(false);
+    toast.success(`'${preset.label}' 이름이 적용되었습니다!`);
+  };
+
+  // 이름 초기화
+  const handleResetNames = () => {
+    setFormData(prev => ({
+      ...prev,
+      customCharacters: prev.customCharacters.map((char, i) => ({
+        ...char,
+        name: `등장인물 ${i + 1}`,
+      })),
+    }));
+    setShowPresetMenu(false);
+    toast.success('이름이 초기화되었습니다.');
+  };
 
   // ── 캐릭터 count 변경 시 목록 동기화 ──────────────────────────
   const syncCharacters = useCallback((newCount: number, prev: CustomCharacter[]) => {
@@ -594,14 +669,72 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   >
                     {/* 역할 설정 탭 */}
                     <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 overflow-hidden">
-                      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b-2 border-gray-100 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-[#1F2937]">역할 이름 직접 설정</p>
-                          <p className="text-xs text-[#6B7280] mt-0.5">각 역할의 이름을 수정하거나 추가·삭제할 수 있어요</p>
+                      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b-2 border-gray-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-bold text-[#1F2937]">역할 이름 직접 설정</p>
+                            <p className="text-xs text-[#6B7280] mt-0.5">이름을 클릭하여 수정하거나 자동 설정을 사용해요</p>
+                          </div>
+                          <span className="px-3 py-1 rounded-full bg-purple-100 text-[#7C3AED] text-xs font-bold border border-purple-200">
+                            {formData.customCharacters.length} / 30
+                          </span>
                         </div>
-                        <span className="px-3 py-1 rounded-full bg-purple-100 text-[#7C3AED] text-xs font-bold border border-purple-200">
-                          {formData.customCharacters.length} / 30
-                        </span>
+
+                        {/* 자동 설정 버튼 */}
+                        <div className="relative" ref={presetMenuRef}>
+                          <button
+                            type="button"
+                            onClick={() => setShowPresetMenu(prev => !prev)}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 text-[#7C3AED] text-sm font-bold transition-all shadow-sm"
+                          >
+                            <Shuffle className="w-4 h-4" />
+                            <span>이름 자동 설정</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showPresetMenu ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          <AnimatePresence>
+                            {showPresetMenu && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border-2 border-purple-200 shadow-xl z-30 overflow-hidden"
+                              >
+                                <div className="p-2">
+                                  {namePresets.map((preset) => (
+                                    <button
+                                      key={preset.label}
+                                      type="button"
+                                      onClick={() => handleApplyPreset(preset)}
+                                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-purple-50 transition-all text-left group"
+                                    >
+                                      <span className="text-xl">{preset.emoji}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-[#1F2937] group-hover:text-[#7C3AED] transition-colors">
+                                          {preset.label}
+                                        </p>
+                                        <p className="text-xs text-[#9CA3AF] truncate">
+                                          {preset.names.slice(0, 5).join(', ')}...
+                                        </p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                  <div className="border-t border-gray-100 mt-1 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={handleResetNames}
+                                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-all text-left"
+                                    >
+                                      <span className="text-xl">🔄</span>
+                                      <p className="text-sm font-bold text-[#EF4444]">이름 초기화</p>
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
 
                       <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
@@ -613,14 +746,18 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, x: 20 }}
                               transition={{ duration: 0.15 }}
-                              className="flex items-center gap-2 p-2.5 rounded-xl border-2 border-gray-100 hover:border-purple-200 bg-gray-50 hover:bg-purple-50 transition-all group"
+                              className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all group ${
+                                editingId === char.id
+                                  ? 'border-[#7C3AED] bg-purple-50'
+                                  : 'border-gray-100 hover:border-purple-200 bg-gray-50 hover:bg-purple-50'
+                              }`}
                             >
                               {/* 번호 뱃지 */}
                               <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-xs font-bold flex items-center justify-center">
                                 {char.number}
                               </div>
 
-                              {/* 이름 (편집 or 표시) */}
+                              {/* 이름 (편집 or 표시) - 클릭 시 바로 편집 */}
                               {editingId === char.id ? (
                                 <input
                                   autoFocus
@@ -634,12 +771,18 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                                   maxLength={20}
                                 />
                               ) : (
-                                <span className="flex-1 text-sm font-semibold text-[#1F2937] truncate">
-                                  {char.name}
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEdit(char)}
+                                  className="flex-1 text-left text-sm font-semibold text-[#1F2937] truncate flex items-center gap-1.5 group/name"
+                                  title="클릭하여 이름 수정"
+                                >
+                                  <span className="truncate">{char.name}</span>
+                                  <Pencil className="w-3 h-3 text-[#C4B5FD] opacity-0 group-hover/name:opacity-100 flex-shrink-0 transition-opacity" />
+                                </button>
                               )}
 
-                              {/* 편집/확인/취소 버튼 */}
+                              {/* 확인/취소 or 삭제 버튼 */}
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {editingId === char.id ? (
                                   <>
@@ -647,6 +790,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                                       type="button"
                                       onClick={handleConfirmEdit}
                                       className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-600 flex items-center justify-center transition-all"
+                                      title="확인 (Enter)"
                                     >
                                       <Check className="w-3.5 h-3.5" />
                                     </button>
@@ -654,28 +798,21 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                                       type="button"
                                       onClick={handleCancelEdit}
                                       className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all"
+                                      title="취소 (Esc)"
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
                                   </>
                                 ) : (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStartEdit(char)}
-                                      className="w-7 h-7 rounded-lg bg-transparent hover:bg-purple-100 text-gray-400 hover:text-[#7C3AED] flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteCharacter(char.id)}
-                                      disabled={formData.customCharacters.length <= 1}
-                                      className="w-7 h-7 rounded-lg bg-transparent hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCharacter(char.id)}
+                                    disabled={formData.customCharacters.length <= 1}
+                                    className="w-7 h-7 rounded-lg bg-transparent hover:bg-red-100 text-gray-300 hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                                    title="삭제"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 )}
                               </div>
                             </motion.div>
