@@ -90,13 +90,16 @@ export default function App() {
         throw new Error(loginData.error || '로그인 실패');
       }
 
+      const displayName = loginData.user.name || name || email.split('@')[0];
       setUser({
         email: loginData.user.email,
-        name: loginData.user.name || name || email.split('@')[0],
+        name: displayName,
         accessToken: loginData.accessToken,
       });
       setShowAuthModal(false);
-      toast.success(`환영합니다, ${loginData.user.name || name || email.split('@')[0]}님!`);
+      toast.success(`환영합니다, ${displayName}님!`);
+      // 로그인 성공 시 과목 선택 화면으로 자동 이동
+      setStep('subject');
     } catch (err: any) {
       throw new Error(err.message || '로그인 중 오류가 발생했습니다.');
     }
@@ -107,6 +110,10 @@ export default function App() {
   };
 
   const handleSubjectSelect = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
     setStep('subject');
   };
 
