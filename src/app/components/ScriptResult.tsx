@@ -271,7 +271,10 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
                     transition={{ delay: index * 0.05 }}
                     className={`p-5 rounded-2xl ${color.bubble} border-2 ${color.border} shadow-sm hover:shadow-md transition-all`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>
+                        {index + 1}
+                      </div>
                       <div className={`px-3 py-1.5 ${color.bg} rounded-full border-2 ${color.border}`}>
                         <span className={`font-bold ${color.text} text-sm`}>{character.name}</span>
                       </div>
@@ -306,6 +309,9 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
               {script.dialogue.map((line, index) => {
                 const color = characterColorMap.get(line.character) || characterColors[0];
                 const isEven = index % 2 === 0;
+                // 캐릭터 순번 찾기 (1-based)
+                const charIdx = script.characters.findIndex(c => c.name === line.character);
+                const charNum = charIdx >= 0 ? charIdx + 1 : null;
                 
                 return (
                   <motion.div
@@ -315,10 +321,17 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
                     transition={{ delay: index * 0.05 }}
                     className={`flex ${isEven ? 'justify-start' : 'justify-end'}`}
                   >
-                    <div className={`max-w-[80%] ${isEven ? 'items-start' : 'items-end'} flex flex-col gap-2`}>
-                      <span className={`text-xs font-bold ${color.text}`}>
-                        {line.character}
-                      </span>
+                    <div className={`max-w-[80%] ${isEven ? 'items-start' : 'items-end'} flex flex-col gap-1.5`}>
+                      <div className={`flex items-center gap-1.5 ${isEven ? '' : 'flex-row-reverse'}`}>
+                        {charNum && (
+                          <span className={`w-5 h-5 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0`}>
+                            {charNum}
+                          </span>
+                        )}
+                        <span className={`text-xs font-bold ${color.text}`}>
+                          {line.character}
+                        </span>
+                      </div>
                       <div className={`p-4 rounded-2xl ${color.bubble} border-2 ${color.border} shadow-sm`}>
                         <p className="text-[#1F2937] font-medium leading-relaxed">
                           {line.line}

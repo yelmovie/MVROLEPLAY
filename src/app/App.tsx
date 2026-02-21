@@ -17,6 +17,12 @@ export interface User {
   accessToken?: string;
 }
 
+export interface CustomCharacter {
+  id: string;
+  number: number;
+  name: string;
+}
+
 export interface ScriptFormData {
   subject: Subject;
   topic: string;
@@ -25,6 +31,7 @@ export interface ScriptFormData {
   groupSize: number;
   timeMinutes: number;
   characterCount: number;
+  customCharacters: CustomCharacter[];
   includeDiscussionLeader: boolean;
   includeStudentTeacherLayout: boolean;
   includeAchievementStandards: boolean;

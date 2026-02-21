@@ -256,12 +256,19 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
     });
 
     // Create prompt for OpenAI API
-    // Calculate expected content based on time (1 minute = A4 1 page = ~400-500 characters of dialogue)
-    const expectedDialogueLength = formData.timeMinutes * 450; // 평균 450자/분
-    const minDialogueCount = Math.max(formData.timeMinutes * 8, 20); // 최소 1분당 8개 대사
-    
-    // Check if subject is English - generate script in English
+    const expectedDialogueLength = formData.timeMinutes * 450;
+    const minDialogueCount = Math.max(formData.timeMinutes * 8, 20);
     const isEnglish = formData.subject === '영어';
+
+    // 커스텀 역할명 목록 (있으면 사용, 없으면 기본 번호로)
+    const customChars: Array<{ number: number; name: string }> = formData.customCharacters || [];
+    const hasCustomNames = customChars.length > 0 && customChars.some(c => c.name && !c.name.startsWith('등장인물'));
+    const charListText = customChars.length > 0
+      ? customChars.map(c => `${c.number}번. ${c.name}`).join(', ')
+      : `${formData.characterCount}명 (자유롭게 이름 설정)`;
+    const charNamesForPrompt = customChars.length > 0
+      ? customChars.map(c => `"${c.number}. ${c.name}"`).join(', ')
+      : null;
     
     const prompt = isEnglish ? 
     `You are an expert in creating educational role-play scripts for elementary school teachers.
@@ -275,6 +282,7 @@ Please create an educational role-play script with the following conditions:
 - Group Size: ${formData.groupSize} students
 - Class Time: ${formData.timeMinutes} minutes
 - Number of Characters: ${formData.characterCount} characters (MUST be exactly ${formData.characterCount})
+${charNamesForPrompt ? `- Character names MUST be EXACTLY: ${charNamesForPrompt} (use these exact names including the number prefix)` : ''}
 ${formData.includeDiscussionLeader ? '- Include discussion leader role' : ''}
 ${formData.includeStudentTeacherLayout ? '- Include student-teacher layout' : ''}
 ${formData.includeAchievementStandards ? '- Include achievement standards' : ''}
@@ -288,12 +296,12 @@ ${formData.includeAchievementStandards ? '- Include achievement standards' : ''}
 
 **CRITICAL: ALL dialogue MUST be in ENGLISH**
 - Every line in the "dialogue" array MUST be written in English
-- Character names should be in English (e.g., Emma, John, Teacher, Student A)
 - This is for English language learning, so all speaking parts must be in English
 - The dialogue should be appropriate for ${formData.gradeLevel} Korean elementary students learning English
 
 **Character Requirements:**
 - You MUST create exactly ${formData.characterCount} characters in the "characters" array
+${charNamesForPrompt ? `- Use EXACTLY these character names (with number prefix): ${charNamesForPrompt}` : '- Character names should be in English (e.g., Emma, John, Teacher, Student A)'}
 - Each character MUST have dialogue lines
 - Distribute dialogue evenly among all ${formData.characterCount} characters
 
@@ -308,13 +316,13 @@ Script Writing Principles:
 Respond in the following JSON format:
 {
   "title": "Role-play Title (in English)",
-  "situationAndRole": "Situation and role description in Korean (200+ characters with detailed explanation). Include: 이 역할극은 ${formData.timeMinutes}분 동안 ${formData.groupSize}명의 학생이 ${formData.characterCount}명의 등장인물을 연기합니다.",
+  "situationAndRole": "Situation and role description in Korean (200+ characters). Include: 이 역할극은 ${formData.timeMinutes}분 동안 ${formData.groupSize}명의 학생이 ${formData.characterCount}명의 등장인물을 연기합니다. 등장인물: ${charListText}",
   "keyTerms": [{"term": "English term", "definition": "Korean definition"}],
-  "characters": [{"name": "Character name (English)", "description": "Detailed description of personality and role in Korean (50+ characters)"}],
-  "dialogue": [{"character": "Character name", "line": "Dialogue line IN ENGLISH (minimum 30 characters)"}],
+  "characters": [{"name": "${charNamesForPrompt ? 'Exact character name with number prefix as listed' : 'Character name (English)'}", "description": "Detailed description in Korean (50+ characters)"}],
+  "dialogue": [{"character": "${charNamesForPrompt ? 'Exact character name with number prefix' : 'Character name'}", "line": "Dialogue line IN ENGLISH (minimum 30 characters)"}],
   "teachingPoints": ["Detailed teaching point in Korean (100+ characters each, minimum 5 points)"],
-  "teacherTips": ["Practical tips for teachers in Korean (80+ characters each, minimum 4 tips). Include tips about time management for ${formData.timeMinutes} minutes and managing ${formData.groupSize} students."],
-  "achievementStandards": {"subject": "영어", "standard": "Complete achievement standards for the ${formData.gradeLevel} grade level in Korean"},
+  "teacherTips": ["Practical tips for teachers in Korean (80+ characters each, minimum 4 tips)."],
+  "achievementStandards": {"subject": "영어", "standard": "Complete achievement standards for ${formData.gradeLevel} in Korean"},
   "closingQuestions": ["Thought-provoking closing questions in Korean (50+ characters each, minimum 3 questions)"]
 }` 
     : 
@@ -326,44 +334,43 @@ Respond in the following JSON format:
 - 과목: ${formData.subject}
 - 주제: ${formData.topic}
 - 학년: ${formData.gradeLevel}
-- 모둠 인원: ${formData.groupSize}명 (실제로 역할극을 수행할 학생 수)
-- 수업 시간: ${formData.timeMinutes}분 (반드시 이 시간에 맞춰 대본 분량 조절)
-- 등장인물 수: ${formData.characterCount}명 (정확히 ${formData.characterCount}명의 캐릭터를 만들어야 함)
+- 모둠 인원: ${formData.groupSize}명
+- 수업 시간: ${formData.timeMinutes}분
+- 등장인물 수: ${formData.characterCount}명 (정확히 ${formData.characterCount}명)
+${charNamesForPrompt ? `- 등장인물 이름은 반드시 다음 이름을 그대로 사용: ${charNamesForPrompt} (번호 포함한 이름 전체를 그대로 사용)` : ''}
 ${formData.includeDiscussionLeader ? '- 토론 리더 역할 포함' : ''}
 ${formData.includeStudentTeacherLayout ? '- 학생-교사 배치 포함' : ''}
 ${formData.includeAchievementStandards ? '- 성취 기준 포함' : ''}
 
 **중요: 대본 분량 가이드라인**
-- 전체 대사(dialogue)는 최소 ${minDialogueCount}개 이상이어야 합니다.
-- 전체 대사 내용의 총 글자수는 약 ${expectedDialogueLength}자 정도여야 합니다. (1분당 A4 1장 분량)
-- 각 대사는 충실하게 작성하되, 너무 짧지 않도록 합니다. (최소 30자 이상)
-- 수업 시간 ${formData.timeMinutes}분에 맞는 충분한 분량의 역할극을 만들어주세요.
-- 대사는 도입부(20%) → 전개부(50%) → 정리부(30%) 구조로 배분합니다.
+- 전체 대사(dialogue)는 최소 ${minDialogueCount}개 이상
+- 전체 대사 총 글자수는 약 ${expectedDialogueLength}자 (1분당 A4 1장)
+- 각 대사는 최소 30자 이상
+- 대사는 도입부(20%) → 전개부(50%) → 정리부(30%) 구조
 
 **등장인물 조건:**
-- "characters" 배열에 정확히 ${formData.characterCount}명의 캐릭터를 생성해야 합니다.
-- 모든 캐릭터는 대사를 가져야 합니다.
-- ${formData.characterCount}명 모두에게 대사를 고르게 배분합니다.
+- "characters" 배열에 정확히 ${formData.characterCount}명 생성
+${charNamesForPrompt ? `- 이름은 반드시: ${charNamesForPrompt} 순서대로 사용 (번호.이름 형식 그대로)` : ''}
+- 모든 캐릭터에 대사 배분
 
 대본 작성 원칙:
-1. ${formData.characterCount}명의 등장인물 모두에게 대사를 고르게 배분합니다.
-2. "${formData.topic}" 주제에 대한 교육적 내용을 대사에 자연스럽게 녹여냅니다.
-3. ${formData.gradeLevel} 학생들이 실제로 연기할 수 있는 현실적인 대사로 작성합니다.
-4. 대사에 감정, 행동 지시를 괄호로 표시합니다. 예: (놀라며), (고개를 끄덕이며)
-5. 중요한 교육 메시지는 반복적으로 강조합니다.
-6. ${formData.groupSize}명의 학생이 ${formData.timeMinutes}분 동안 수행할 수 있도록 작성합니다.
+1. ${formData.characterCount}명 모두에게 대사를 고르게 배분합니다.
+2. "${formData.topic}" 주제를 대사에 자연스럽게 녹여냅니다.
+3. ${formData.gradeLevel} 학생들이 연기할 수 있는 현실적인 대사로 작성합니다.
+4. 대사에 감정·행동 지시를 괄호로 표시합니다. 예: (놀라며), (고개를 끄덕이며)
+5. ${formData.groupSize}명의 학생이 ${formData.timeMinutes}분 동안 수행할 수 있도록 작성합니다.
 
 다음 형식의 JSON으로 응답해주세요:
 {
   "title": "역할극 제목",
-  "situationAndRole": "상황 및 역할 설명 (200자 이상으로 상세히). 반드시 포함: 이 역할극은 ${formData.timeMinutes}분 동안 ${formData.groupSize}명의 학생이 ${formData.characterCount}명의 등장인물을 연기합니다.",
+  "situationAndRole": "상황 및 역할 설명 (200자 이상). 반드시 포함: 이 역할극은 ${formData.timeMinutes}분 동안 ${formData.groupSize}명의 학생이 ${formData.characterCount}명의 등장인물을 연기합니다. 등장인물: ${charListText}",
   "keyTerms": [{"term": "용어", "definition": "정의"}],
-  "characters": [{"name": "캐릭터명", "description": "성격과 역할을 구체적으로 설명 (50자 이상)"}],
-  "dialogue": [{"character": "캐릭터명", "line": "대사 내용 (최소 30자 이상)"}],
-  "teachingPoints": ["교육 포인트를 구체적으로 설명 (각 100자 이상, 최소 5개)"],
-  "teacherTips": ["교사를 위한 실용적인 팁 (각 80자 이상, 최소 4개). ${formData.timeMinutes}분 시간 관리와 ${formData.groupSize}명 학생 관리 팁 포함."],
-  "achievementStandards": {"subject": "${formData.subject}", "standard": "${formData.gradeLevel} 해당 학년 성취기준 전체 내용"},
-  "closingQuestions": ["학생들의 사고를 확장하는 마무리 질문 (각 50자 이상, 최소 3개)"]
+  "characters": [{"name": "${charNamesForPrompt ? '지정된 번호.이름 그대로 사용' : '캐릭터명'}", "description": "성격과 역할 설명 (50자 이상)"}],
+  "dialogue": [{"character": "${charNamesForPrompt ? '지정된 번호.이름 그대로 사용' : '캐릭터명'}", "line": "대사 내용 (최소 30자 이상)"}],
+  "teachingPoints": ["교육 포인트 (각 100자 이상, 최소 5개)"],
+  "teacherTips": ["교사용 팁 (각 80자 이상, 최소 4개)"],
+  "achievementStandards": {"subject": "${formData.subject}", "standard": "${formData.gradeLevel} 성취기준 전체 내용"},
+  "closingQuestions": ["마무리 질문 (각 50자 이상, 최소 3개)"]
 }`;
 
     console.log(`Calling OpenAI GPT-4o-mini API for user ${user.id} (${isEnglish ? 'English' : 'Korean'} script)`);

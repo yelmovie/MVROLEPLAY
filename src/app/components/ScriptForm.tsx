@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Subject, ScriptFormData, GeneratedScript } from '../App';
+import { Subject, ScriptFormData, GeneratedScript, CustomCharacter } from '../App';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -76,6 +76,15 @@ const subjectColors: Record<Subject, { gradient: string; bg: string; border: str
   '영어': { gradient: 'from-indigo-400 to-purple-400', bg: 'bg-indigo-50', border: 'border-indigo-300' },
 };
 
+// 기본 역할명 생성 헬퍼
+function makeDefaultChars(count: number): CustomCharacter[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `char-${Date.now()}-${i}`,
+    number: i + 1,
+    name: `등장인물 ${i + 1}`,
+  }));
+}
+
 export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: ScriptFormProps) {
   const [formData, setFormData] = useState<ScriptFormData>({
     subject,
@@ -85,6 +94,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     groupSize: 5,
     timeMinutes: 5,
     characterCount: 5,
+    customCharacters: makeDefaultChars(5),
     includeDiscussionLeader: false,
     includeStudentTeacherLayout: true,
     includeAchievementStandards: true,
@@ -93,6 +103,76 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isGeneratingTopic, setIsGeneratingTopic] = useState(false);
+  const [activeTab, setActiveTab] = useState<'settings' | 'characters'>('settings');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  // ── 캐릭터 count 변경 시 목록 동기화 ──────────────────────────
+  const syncCharacters = useCallback((newCount: number, prev: CustomCharacter[]) => {
+    if (newCount > prev.length) {
+      const extra = Array.from({ length: newCount - prev.length }, (_, i) => ({
+        id: `char-${Date.now()}-${i}`,
+        number: prev.length + i + 1,
+        name: `등장인물 ${prev.length + i + 1}`,
+      }));
+      return [...prev, ...extra];
+    }
+    return prev.slice(0, newCount).map((c, i) => ({ ...c, number: i + 1 }));
+  }, []);
+
+  const handleCountChange = (newCount: number) => {
+    const clamped = Math.min(30, Math.max(1, newCount));
+    setFormData(prev => ({
+      ...prev,
+      characterCount: clamped,
+      customCharacters: syncCharacters(clamped, prev.customCharacters),
+    }));
+  };
+
+  const handleAddCharacter = () => {
+    if (formData.customCharacters.length >= 30) return;
+    const newNum = formData.customCharacters.length + 1;
+    const newChar: CustomCharacter = {
+      id: `char-${Date.now()}`,
+      number: newNum,
+      name: `등장인물 ${newNum}`,
+    };
+    setFormData(prev => ({
+      ...prev,
+      characterCount: prev.customCharacters.length + 1,
+      customCharacters: [...prev.customCharacters, newChar],
+    }));
+  };
+
+  const handleDeleteCharacter = (id: string) => {
+    setFormData(prev => {
+      const filtered = prev.customCharacters.filter(c => c.id !== id)
+        .map((c, i) => ({ ...c, number: i + 1 }));
+      return { ...prev, characterCount: filtered.length, customCharacters: filtered };
+    });
+  };
+
+  const handleStartEdit = (char: CustomCharacter) => {
+    setEditingId(char.id);
+    setEditingName(char.name);
+  };
+
+  const handleConfirmEdit = () => {
+    if (!editingId) return;
+    setFormData(prev => ({
+      ...prev,
+      customCharacters: prev.customCharacters.map(c =>
+        c.id === editingId ? { ...c, name: editingName.trim() || c.name } : c
+      ),
+    }));
+    setEditingId(null);
+    setEditingName('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingName('');
+  };
 
   const handleTopicClick = (topic: string) => {
     setFormData({ ...formData, topic, topicGeneratedByAI: false });
@@ -384,86 +464,240 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                 </div>
               </div>
 
-              {/* Grid: Grade / Group Size / Time / Character Count */}
-              <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-gray-200">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {/* Grade Level */}
-                  <div>
-                    <Label htmlFor="gradeLevel" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                      학년
-                    </Label>
-                    <Select value={formData.gradeLevel} onValueChange={(value) => setFormData({ ...formData, gradeLevel: value })}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {gradeLevels.map((level) => (
-                          <SelectItem key={level.value} value={level.value}>
-                            {level.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Group Size */}
-                  <div>
-                    <Label htmlFor="groupSize" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                      인원수 (3-12명)
-                    </Label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
-                      <Input
-                        id="groupSize"
-                        type="number"
-                        min={3}
-                        max={12}
-                        value={formData.groupSize}
-                        onChange={(e) => setFormData({ ...formData, groupSize: parseInt(e.target.value) || 3 })}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Time */}
-                  <div>
-                    <Label htmlFor="timeMinutes" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                      시간 (3-20분)
-                    </Label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
-                      <Input
-                        id="timeMinutes"
-                        type="number"
-                        min={3}
-                        max={20}
-                        value={formData.timeMinutes}
-                        onChange={(e) => setFormData({ ...formData, timeMinutes: parseInt(e.target.value) || 3 })}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Character Count */}
-                  <div>
-                    <Label htmlFor="characterCount" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                      등장인물 (3-12명)
-                    </Label>
-                    <div className="relative">
-                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
-                      <Input
-                        id="characterCount"
-                        type="number"
-                        min={3}
-                        max={12}
-                        value={formData.characterCount}
-                        onChange={(e) => setFormData({ ...formData, characterCount: parseInt(e.target.value) || 3 })}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                </div>
+              {/* 탭 전환 */}
+              <div className="flex rounded-2xl overflow-hidden border-2 border-gray-200 shadow-md bg-white">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`flex-1 py-3 text-sm font-bold transition-all duration-200 ${
+                    activeTab === 'settings'
+                      ? 'bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white shadow-inner'
+                      : 'text-[#6B7280] hover:bg-gray-50'
+                  }`}
+                >
+                  ⚙️ 기본 설정
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('characters')}
+                  className={`flex-1 py-3 text-sm font-bold transition-all duration-200 relative ${
+                    activeTab === 'characters'
+                      ? 'bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white shadow-inner'
+                      : 'text-[#6B7280] hover:bg-gray-50'
+                  }`}
+                >
+                  🎭 역할 설정
+                  <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/30 text-xs font-bold">
+                    {formData.customCharacters.length}
+                  </span>
+                </button>
               </div>
+
+              <AnimatePresence mode="wait">
+                {activeTab === 'settings' ? (
+                  <motion.div
+                    key="settings"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* Grid: Grade / Group Size / Time / Character Count */}
+                    <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-gray-200">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {/* Grade Level */}
+                        <div>
+                          <Label htmlFor="gradeLevel" className="text-sm font-bold text-[#1F2937] mb-2 block">
+                            학년
+                          </Label>
+                          <Select value={formData.gradeLevel} onValueChange={(value) => setFormData({ ...formData, gradeLevel: value })}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {gradeLevels.map((level) => (
+                                <SelectItem key={level.value} value={level.value}>
+                                  {level.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Group Size */}
+                        <div>
+                          <Label htmlFor="groupSize" className="text-sm font-bold text-[#1F2937] mb-2 block">
+                            인원수 (1-30명)
+                          </Label>
+                          <div className="relative">
+                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
+                            <Input
+                              id="groupSize"
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={formData.groupSize}
+                              onChange={(e) => setFormData({ ...formData, groupSize: Math.min(30, Math.max(1, parseInt(e.target.value) || 1)) })}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Time */}
+                        <div>
+                          <Label htmlFor="timeMinutes" className="text-sm font-bold text-[#1F2937] mb-2 block">
+                            시간 (3-20분)
+                          </Label>
+                          <div className="relative">
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
+                            <Input
+                              id="timeMinutes"
+                              type="number"
+                              min={3}
+                              max={20}
+                              value={formData.timeMinutes}
+                              onChange={(e) => setFormData({ ...formData, timeMinutes: parseInt(e.target.value) || 3 })}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Character Count */}
+                        <div>
+                          <Label htmlFor="characterCount" className="text-sm font-bold text-[#1F2937] mb-2 block">
+                            등장인물 (1-30명)
+                          </Label>
+                          <div className="relative">
+                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
+                            <Input
+                              id="characterCount"
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={formData.characterCount}
+                              onChange={(e) => handleCountChange(parseInt(e.target.value) || 1)}
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="characters"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {/* 역할 설정 탭 */}
+                    <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 overflow-hidden">
+                      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b-2 border-gray-100 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-[#1F2937]">역할 이름 직접 설정</p>
+                          <p className="text-xs text-[#6B7280] mt-0.5">각 역할의 이름을 수정하거나 추가·삭제할 수 있어요</p>
+                        </div>
+                        <span className="px-3 py-1 rounded-full bg-purple-100 text-[#7C3AED] text-xs font-bold border border-purple-200">
+                          {formData.customCharacters.length} / 30
+                        </span>
+                      </div>
+
+                      <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
+                        <AnimatePresence>
+                          {formData.customCharacters.map((char) => (
+                            <motion.div
+                              key={char.id}
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              transition={{ duration: 0.15 }}
+                              className="flex items-center gap-2 p-2.5 rounded-xl border-2 border-gray-100 hover:border-purple-200 bg-gray-50 hover:bg-purple-50 transition-all group"
+                            >
+                              {/* 번호 뱃지 */}
+                              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-xs font-bold flex items-center justify-center">
+                                {char.number}
+                              </div>
+
+                              {/* 이름 (편집 or 표시) */}
+                              {editingId === char.id ? (
+                                <input
+                                  autoFocus
+                                  className="flex-1 text-sm font-semibold text-[#1F2937] bg-white border-2 border-[#7C3AED] rounded-lg px-2 py-1 outline-none"
+                                  value={editingName}
+                                  onChange={(e) => setEditingName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleConfirmEdit();
+                                    if (e.key === 'Escape') handleCancelEdit();
+                                  }}
+                                  maxLength={20}
+                                />
+                              ) : (
+                                <span className="flex-1 text-sm font-semibold text-[#1F2937] truncate">
+                                  {char.name}
+                                </span>
+                              )}
+
+                              {/* 편집/확인/취소 버튼 */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {editingId === char.id ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={handleConfirmEdit}
+                                      className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-600 flex items-center justify-center transition-all"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelEdit}
+                                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStartEdit(char)}
+                                      className="w-7 h-7 rounded-lg bg-transparent hover:bg-purple-100 text-gray-400 hover:text-[#7C3AED] flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteCharacter(char.id)}
+                                      disabled={formData.customCharacters.length <= 1}
+                                      className="w-7 h-7 rounded-lg bg-transparent hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* 역할 추가 버튼 */}
+                      <div className="p-3 border-t-2 border-gray-100">
+                        <button
+                          type="button"
+                          onClick={handleAddCharacter}
+                          disabled={formData.customCharacters.length >= 30}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-purple-300 hover:border-purple-400 hover:bg-purple-50 text-[#7C3AED] text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Plus className="w-4 h-4" />
+                          역할 추가
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Advanced Options - Accordion */}
               <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 overflow-hidden">
@@ -607,7 +841,8 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] mt-2"></div>
                     <div>
-                      <span className="font-semibold text-[#1F2937]">등장인물:</span> {formData.characterCount}명
+                      <span className="font-semibold text-[#1F2937]">등장인물:</span>{' '}
+                      {formData.customCharacters.map(c => `${c.number}. ${c.name}`).join(' / ')}
                     </div>
                   </div>
                 </div>
