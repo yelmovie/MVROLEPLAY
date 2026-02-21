@@ -261,15 +261,17 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
     });
 
     // Create prompt for OpenAI API
-    const expectedDialogueLength = formData.timeMinutes * 450;
-    const minDialogueCount = Math.max(formData.timeMinutes * 8, 20);
+    // 1분당 평균 대사 12줄, 각 대사 평균 50자 기준
+    const minDialogueCount = Math.max(formData.timeMinutes * 12, 24);
+    const expectedDialogueLength = formData.timeMinutes * 600;
     const isEnglish = formData.subject === '영어';
+    const characterCount = formData.characterCount || formData.groupSize || 5;
 
     // 커스텀 역할명 목록
     const customChars: Array<{ number: number; name: string }> = formData.customCharacters || [];
     const charListText = customChars.length > 0
       ? customChars.map((c: { number: number; name: string }) => c.number + '번. ' + c.name).join(', ')
-      : formData.characterCount + '명 (자유롭게 이름 설정)';
+      : characterCount + '명 (자유롭게 이름 설정)';
     const charNamesForPrompt: string | null = customChars.length > 0
       ? customChars.map((c: { number: number; name: string }) => '"' + c.number + '. ' + c.name + '"').join(', ')
       : null;
@@ -291,10 +293,10 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
       '  "title": "역할극 제목",\n' +
       '  "situationAndRole": "배경과 상황 설명 (200자 이상). ' +
       '반드시 포함: 이 역할극은 ' + formData.timeMinutes + '분 동안 ' + formData.groupSize + '명의 학생이 ' +
-      formData.characterCount + '명의 등장인물을 연기합니다. 등장인물: ' + charListText + '",\n' +
+      characterCount + '명의 등장인물을 연기합니다. 등장인물: ' + charListText + '",\n' +
       '  "keyTerms": [{"term": "핵심 개념/용어", "definition": "뜻과 이야기 속 쓰임새 설명"}],\n' +
       '  "characters": [{"name": "' + charNameHint + '", "description": "성격.역할.감정적 여정 (50자 이상)"}],\n' +
-      '  "dialogue": [{"character": "인물명 또는 \\u{1F4CD}장면", "line": "대사 또는 [막 레이블] 장면 지문"}],\n' +
+      '  "dialogue": [{"character": "인물명 또는 📍장면", "line": "대사 또는 [막 레이블] 장면 지문"}],\n' +
       '  "teachingPoints": ["교육 목표와의 연결 (100자 이상, 5개 이상)"],\n' +
       '  "teacherTips": ["연극 지도 팁 (80자 이상, 4개 이상)"],\n' +
       '  "achievementStandards": {"subject": "' + formData.subject + '", "standard": "' + formData.gradeLevel + ' 초등 교육과정 성취기준 (정확한 코드와 내용)"},\n' +
@@ -309,15 +311,18 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
       '  막3: "[절정 - 위기] 장면 지문"\n' +
       '  막4: "[결말 - 해소와 성찰] 장면 지문"';
 
-    // 공통 대사 규칙
+    // 공통 대사 규칙 (시간 비례 강제)
     const dialogueRules =
-      '- 전체 대사 수: 최소 ' + minDialogueCount + '개\n' +
-      '- 각 대사: 최소 30자\n' +
+      '★ 대사 수량 필수 준수 ★\n' +
+      '- 공연 시간 ' + formData.timeMinutes + '분에 맞춰 대사를 충분히 생성\n' +
+      '- 전체 대사 수: 반드시 최소 ' + minDialogueCount + '개 이상 (4막 레이블 제외, 실제 대사만 카운트)\n' +
+      '- 총 대사 글자 수: 최소 ' + expectedDialogueLength + '자 이상\n' +
+      '- 각 대사: 최소 30자 이상의 실질적 대사\n' +
+      '- 등장인물 ' + characterCount + '명 모두에게 대사 균등 배분 (인물당 최소 ' + Math.floor(minDialogueCount / characterCount) + '개 이상)\n' +
       '- 아이들 실제 말투 사용 (존댓말.반말 캐릭터별 구분)\n' +
       '- 감정 지문 괄호 표시: (울먹이며), (화나서), (용기를 내서)\n' +
       '- 짧은 대사 + 긴 감정 대사 섞어 극적 리듬 만들기\n' +
-      '- 교훈 설명 대사 금지. 행동.감정으로만 표현\n' +
-      '- 등장인물 모두에게 대사 균등 배분';
+      '- 교훈 설명 대사 금지. 행동.감정으로만 표현';
 
     // 과목별 프롬프트와 시스템 메시지 구성
     let prompt = '';
@@ -341,7 +346,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
         '- 공연 시간: ' + formData.timeMinutes + '분\n' +
-        '- 등장인물 수: 정확히 ' + formData.characterCount + '명\n' +
+        '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
@@ -372,7 +377,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
         '- 공연 시간: ' + formData.timeMinutes + '분\n' +
-        '- 등장인물 수: 정확히 ' + formData.characterCount + '명\n' +
+        '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
@@ -404,7 +409,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
         '- 공연 시간: ' + formData.timeMinutes + '분\n' +
-        '- 등장인물 수: 정확히 ' + formData.characterCount + '명\n' +
+        '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
@@ -436,7 +441,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- 학년: ' + formData.gradeLevel + '\n' +
         '- 공연 인원: ' + formData.groupSize + '명\n' +
         '- 공연 시간: ' + formData.timeMinutes + '분\n' +
-        '- 등장인물 수: 정확히 ' + formData.characterCount + '명\n' +
+        '- 등장인물 수: 정확히 ' + characterCount + '명\n' +
         (charInstruction ? '- ' + charInstruction + '\n' : '') +
         optionLines + '\n\n' +
         '[4막 레이블 규칙]\n' + actLabelRule + '\n\n' +
@@ -460,7 +465,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '  "title": "Engaging English play title",\n' +
         '  "situationAndRole": "Vivid scene description in Korean (200+ chars). Include: ' +
         '이 역할극은 ' + formData.timeMinutes + '분 동안 ' + formData.groupSize + '명의 학생이 ' +
-        formData.characterCount + '명의 등장인물을 연기합니다. 등장인물: ' + charListText + '",\n' +
+        characterCount + '명의 등장인물을 연기합니다. 등장인물: ' + charListText + '",\n' +
         '  "keyTerms": [{"term": "Target English expression", "definition": "Korean meaning + example"}],\n' +
         '  "characters": [{"name": "' + (charNamesForPrompt ? 'exact name as listed' : 'Character name') + '", "description": "Personality and role in Korean (50+ chars)"}],\n' +
         '  "dialogue": [{"character": "Name OR \\u{1F4CD}장면", "line": "English dialogue OR [Act Label] Korean stage direction"}],\n' +
@@ -482,7 +487,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         '- Grade Level: ' + formData.gradeLevel + ' (Korean elementary)\n' +
         '- Performers: ' + formData.groupSize + ' students\n' +
         '- Duration: ' + formData.timeMinutes + ' minutes\n' +
-        '- Characters: exactly ' + formData.characterCount + '\n' +
+        '- Characters: exactly ' + characterCount + '\n' +
         (charNamesForPrompt ? '- Character names MUST be: ' + charNamesForPrompt + '\n' : '') +
         (formData.includeDiscussionLeader ? '- Include a discussion facilitator character\n' : '') +
         (formData.includeStudentTeacherLayout ? '- Include teacher/student role distinction\n' : '') +
@@ -499,12 +504,15 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         'Act 3 - Crisis (25%): Peak moment requiring target language\n' +
         'Act 4 - Resolution (20%): Genuine resolution, target expressions used meaningfully\n\n' +
         '[DIALOGUE RULES]\n' +
-        '- Total lines: at least ' + minDialogueCount + '\n' +
+        '★ MANDATORY DIALOGUE VOLUME ★\n' +
+        '- Performance duration: ' + formData.timeMinutes + ' minutes\n' +
+        '- Total dialogue lines: MINIMUM ' + minDialogueCount + ' lines (act labels not counted)\n' +
+        '- Total dialogue length: MINIMUM ' + expectedDialogueLength + ' characters\n' +
+        '- Each line: minimum 30 characters\n' +
         '- ALL dialogue in natural English (appropriate for ' + formData.gradeLevel + ' Korean learners)\n' +
+        '- Spread evenly: ' + characterCount + ' characters, minimum ' + Math.floor(minDialogueCount / characterCount) + ' lines each\n' +
         '- Korean emotion cues in parentheses: (놀라며), (화가 나서), (기쁘게)\n' +
-        '- Mix simple (A2) and slightly challenging (B1) sentences\n' +
-        '- Real-sounding: kids hesitate, repeat, get confused, succeed\n' +
-        '- Spread dialogue evenly across all ' + formData.characterCount + ' characters\n\n' +
+        '- Mix simple (A2) and slightly challenging (B1) sentences\n\n' +
         'Respond in this exact JSON format:\n' + engJsonBlock;
     }
 
@@ -530,7 +538,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
           }
         ],
         temperature: 0.92,
-        max_tokens: 16000,
+        max_tokens: Math.min(16000, Math.max(8000, formData.timeMinutes * 800)),
         response_format: { type: "json_object" }
       }),
     });

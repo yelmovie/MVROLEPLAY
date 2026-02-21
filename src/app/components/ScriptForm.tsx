@@ -520,7 +520,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   >
                     {/* Grid: Grade / Group Size / Time / Character Count */}
                     <div className="bg-white rounded-2xl p-6 shadow-md border-2 border-gray-200">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {/* Grade Level */}
                         <div>
                           <Label htmlFor="gradeLevel" className="text-sm font-bold text-[#1F2937] mb-2 block">
@@ -553,7 +553,11 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               min={1}
                               max={30}
                               value={formData.groupSize}
-                              onChange={(e) => setFormData({ ...formData, groupSize: Math.min(30, Math.max(1, parseInt(e.target.value) || 1)) })}
+                              onChange={(e) => {
+                                const val = Math.min(30, Math.max(1, parseInt(e.target.value) || 1));
+                                handleCountChange(val);
+                                setFormData(prev => ({ ...prev, groupSize: val }));
+                              }}
                               className="pl-10"
                             />
                           </div>
@@ -572,26 +576,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               min={3}
                               max={20}
                               value={formData.timeMinutes}
-                              onChange={(e) => setFormData({ ...formData, timeMinutes: parseInt(e.target.value) || 3 })}
-                              className="pl-10"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Character Count */}
-                        <div>
-                          <Label htmlFor="characterCount" className="text-sm font-bold text-[#1F2937] mb-2 block">
-                            등장인물 (1-30명)
-                          </Label>
-                          <div className="relative">
-                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none z-10" />
-                            <Input
-                              id="characterCount"
-                              type="number"
-                              min={1}
-                              max={30}
-                              value={formData.characterCount}
-                              onChange={(e) => handleCountChange(parseInt(e.target.value) || 1)}
+                              onChange={(e) => setFormData(prev => ({ ...prev, timeMinutes: Math.min(20, Math.max(3, parseInt(e.target.value) || 3)) }))}
                               className="pl-10"
                             />
                           </div>
@@ -851,7 +836,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] mt-2"></div>
                     <div>
-                      <span className="font-semibold text-[#1F2937]">구성:</span> {formData.groupSize}명, {formData.timeMinutes}분
+                      <span className="font-semibold text-[#1F2937]">구성:</span> 인원 {formData.groupSize}명 · {formData.timeMinutes}분 분량
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
