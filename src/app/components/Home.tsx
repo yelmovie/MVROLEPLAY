@@ -278,18 +278,41 @@ export function Home({ onSubjectSelect, user, onLogin, onLogout }: HomeProps) {
             </motion.p>
 
             {/* CTA Button */}
-            <motion.button
-              onClick={onSubjectSelect}
-              className="inline-flex items-center gap-3 px-12 py-4 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white font-bold text-lg shadow-xl shadow-purple-300/50 transition-all group"
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              whileHover={{ scale: 1.05, y: -2, boxShadow: "0 25px 30px -5px rgba(124, 58, 237, 0.4)" }}
-              whileTap={{ scale: 0.98 }}
+              className="flex flex-col items-center gap-3"
             >
-              <span>대본 만들기 시작</span>
-              <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-            </motion.button>
+              <motion.button
+                onClick={onSubjectSelect}
+                className="inline-flex items-center gap-3 px-12 py-4 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white font-bold text-lg shadow-xl shadow-purple-300/50 transition-all group"
+                whileHover={{ scale: 1.05, y: -2, boxShadow: "0 25px 30px -5px rgba(124, 58, 237, 0.4)" }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {user ? (
+                  <>
+                    <span>과목 선택하러 가기</span>
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                  </>
+                ) : (
+                  <>
+                    <span>대본 만들기 시작</span>
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </motion.button>
+              {!user && (
+                <p className="text-sm text-[#9CA3AF] font-medium">
+                  로그인이 필요해요 · 무료로 시작하세요
+                </p>
+              )}
+              {user && (
+                <p className="text-sm text-[#10B981] font-semibold">
+                  ✅ {user.name}님 로그인 중
+                </p>
+              )}
+            </motion.div>
           </div>
 
           {/* Hero Illustration */}

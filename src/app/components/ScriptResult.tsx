@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Download, FileText, User as UserIcon, CheckCircle2, ChevronDown, ChevronUp, Sparkles, BookOpen, Users2, Film, Lightbulb, GraduationCap, Award, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Download, FileText, User as UserIcon, CheckCircle2, ChevronDown, ChevronUp, Sparkles, BookOpen, Users2, Film, GraduationCap, Award, MessageCircle, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { GeneratedScript } from '../App';
 import { useState } from 'react';
@@ -94,23 +94,34 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
               <span>수정하기</span>
             </motion.button>
 
-            {user && (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border-2 border-purple-200">
-                  <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></div>
-                  <UserIcon className="w-4 h-4 text-[#7C3AED]" />
-                  <span className="text-sm font-semibold text-[#1F2937]">{user.name}</span>
-                </div>
-                <motion.button
-                  onClick={onNewScript}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white font-semibold transition-all shadow-md"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  새로 만들기
-                </motion.button>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {user ? (
+                <>
+                  <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 border-2 border-purple-200">
+                    <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></div>
+                    <UserIcon className="w-4 h-4 text-[#7C3AED]" />
+                    <span className="text-sm font-semibold text-[#1F2937]">{user.name}</span>
+                  </div>
+                  <motion.button
+                    onClick={onLogout}
+                    className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-red-50 hover:bg-red-100 border-2 border-red-200 transition-all text-red-600"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm font-semibold">로그아웃</span>
+                  </motion.button>
+                </>
+              ) : null}
+              <motion.button
+                onClick={onNewScript}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white font-semibold transition-all shadow-md"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                새로 만들기
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.header>

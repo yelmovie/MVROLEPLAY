@@ -135,7 +135,7 @@ export function AuthModal({ onClose, onLogin }: AuthModalProps) {
                 {isLogin ? '로그인' : '회원가입'}
               </h2>
               <p className="text-white/90 font-medium">
-                {isLogin ? 'MovieSsam에 오신 것을 환영합니다!' : '새로운 계정을 만들어보세요'}
+                {isLogin ? 'Roleplay Snap에 오신 것을 환영합니다!' : '새로운 계정을 만들어보세요'}
               </p>
             </div>
           </div>

@@ -278,8 +278,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     setIsGeneratingTopic(true);
 
     try {
-      console.log('Generating topic with AI...');
-      
       const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-topic`, {
         method: 'POST',
@@ -295,7 +293,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Generate topic error:', errorData);
         toast.error('주제 생성 실패', {
           description: errorData.error || '알 수 없는 오류',
         });
@@ -304,13 +301,10 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       }
 
       const data = await response.json();
-      console.log('Topic generated successfully:', data.topic);
-
       setFormData({ ...formData, topic: data.topic, topicGeneratedByAI: true });
       toast.success('주제가 생성되었습니다!');
       setIsGeneratingTopic(false);
-    } catch (error) {
-      console.error('Generate topic error:', error);
+    } catch {
       toast.error('주제 생성 중 오류가 발생했습니다.');
       setIsGeneratingTopic(false);
     }
@@ -327,8 +321,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     setIsGenerating(true);
     
     try {
-      console.log('Calling generate script API...');
-      
       const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-script`, {
         method: 'POST',
@@ -341,7 +333,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Generate script error:', errorData);
         toast.error('대본 생성 실패', {
           description: errorData.error || '알 수 없는 오류',
         });
@@ -350,41 +341,18 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       }
 
       const data = await response.json();
-      console.log('Script generated successfully');
-      console.log('Generated script details:', {
-        title: data.script.title,
-        characterCount: data.script.characters?.length,
-        dialogueCount: data.script.dialogue?.length,
-        subject: formData.subject,
-        timeMinutes: formData.timeMinutes,
-      });
 
-      // Create GeneratedScript object
       const script: GeneratedScript = {
         formData,
         ...data.script
       };
 
-      // Validate script matches user requirements
-      const validationIssues = [];
-      if (script.characters.length !== formData.characterCount) {
-        validationIssues.push(`등장인물 ${script.characters.length}명 (요청: ${formData.characterCount}명)`);
-      }
-      if (script.dialogue.length < formData.timeMinutes * 8) {
-        validationIssues.push(`대사 ${script.dialogue.length}개 (권장: 최소 ${formData.timeMinutes * 8}개)`);
-      }
-
-      if (validationIssues.length > 0) {
-        console.warn('Script validation warnings:', validationIssues);
-      }
-
       toast.success('대본이 생성되었습니다!', {
-        description: `${script.title}\n✅ ${script.characters.length}명 등장인물 | ${script.dialogue.length}개 대사 | ${formData.timeMinutes}분용`,
+        description: `${script.title} · ${script.characters.length}명 · ${script.dialogue.length}개 대사`,
       });
       setIsGenerating(false);
       onSubmit(script);
-    } catch (error) {
-      console.error('Generate script error:', error);
+    } catch {
       toast.error('대본 생성 중 오류가 발생했습니다.');
       setIsGenerating(false);
     }
