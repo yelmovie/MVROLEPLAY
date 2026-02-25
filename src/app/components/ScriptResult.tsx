@@ -27,6 +27,8 @@ const characterColors = [
 ];
 
 export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: ScriptResultProps) {
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [isDownloadingDOCX, setIsDownloadingDOCX] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     situation: true,
     keyTerms: false,
@@ -41,24 +43,30 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
   };
 
   const handleDownloadDOCX = async () => {
+    if (isDownloadingDOCX) return;
+    setIsDownloadingDOCX(true);
     const id = toast.loading('DOCX 파일 생성 중...');
     try {
       await downloadScriptAsDOCX(script);
       toast.success('DOCX 다운로드 완료!', { id });
     } catch (e) {
-      console.error(e);
       toast.error('DOCX 다운로드 실패. 다시 시도해 주세요.', { id });
+    } finally {
+      setIsDownloadingDOCX(false);
     }
   };
 
   const handleDownloadPDF = async () => {
+    if (isDownloadingPDF) return;
+    setIsDownloadingPDF(true);
     const id = toast.loading('PDF 파일 생성 중...');
     try {
       await downloadScriptAsPDF(script);
       toast.success('PDF 다운로드 완료!', { id });
     } catch (e) {
-      console.error(e);
       toast.error('PDF 다운로드 실패. 다시 시도해 주세요.', { id });
+    } finally {
+      setIsDownloadingPDF(false);
     }
   };
 
@@ -184,23 +192,27 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
           
           <div className="flex flex-wrap gap-4">
             <motion.button
+              type="button"
               onClick={handleDownloadDOCX}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white font-bold shadow-lg shadow-purple-300/50 transition-all"
-              whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(124, 58, 237, 0.4)" }}
-              whileTap={{ scale: 0.95 }}
+              disabled={isDownloadingDOCX}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] text-white font-bold shadow-lg shadow-purple-300/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              whileHover={!isDownloadingDOCX ? { scale: 1.05, boxShadow: "0 20px 25px -5px rgba(124, 58, 237, 0.4)" } : {}}
+              whileTap={!isDownloadingDOCX ? { scale: 0.95 } : {}}
             >
               <Download className="w-5 h-5" />
-              <span>DOCX 다운로드</span>
+              <span>{isDownloadingDOCX ? '생성 중...' : 'DOCX 다운로드'}</span>
             </motion.button>
             
             <motion.button
+              type="button"
               onClick={handleDownloadPDF}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white font-bold shadow-lg shadow-emerald-300/50 transition-all"
-              whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.4)" }}
-              whileTap={{ scale: 0.95 }}
+              disabled={isDownloadingPDF}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white font-bold shadow-lg shadow-emerald-300/50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              whileHover={!isDownloadingPDF ? { scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.4)" } : {}}
+              whileTap={!isDownloadingPDF ? { scale: 0.95 } : {}}
             >
               <FileText className="w-5 h-5" />
-              <span>PDF 다운로드</span>
+              <span>{isDownloadingPDF ? '생성 중...' : 'PDF 다운로드'}</span>
             </motion.button>
           </div>
         </motion.div>

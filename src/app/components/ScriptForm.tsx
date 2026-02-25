@@ -292,10 +292,14 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        toast.error('주제 생성 실패', {
-          description: errorData.error || '알 수 없는 오류',
-        });
+        let errMsg = '알 수 없는 오류';
+        try {
+          const errorData = await response.json();
+          errMsg = errorData?.error || errMsg;
+        } catch {
+          errMsg = `서버 오류 (${response.status})`;
+        }
+        toast.error('주제 생성 실패', { description: errMsg });
         setIsGeneratingTopic(false);
         return;
       }
@@ -332,10 +336,14 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        toast.error('대본 생성 실패', {
-          description: errorData.error || '알 수 없는 오류',
-        });
+        let errMsg = '알 수 없는 오류';
+        try {
+          const errorData = await response.json();
+          errMsg = errorData?.error || errMsg;
+        } catch {
+          errMsg = `서버 오류 (${response.status})`;
+        }
+        toast.error('대본 생성 실패', { description: errMsg });
         setIsGenerating(false);
         return;
       }
