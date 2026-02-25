@@ -1,0 +1,4 @@
+# Edge Function: 로그인/회원가입은 토큰 없이 호출되므로 JWT 검증 비활성화
+# generate-topic, generate-script는 함수 내부에서 Authorization 헤더로 검증함
+[functions.make-server-9b937296]
+verify_jwt = false

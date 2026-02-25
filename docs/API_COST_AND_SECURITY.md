@@ -1,5 +1,13 @@
 # API 요금폭탄 방지 및 보안 설계
 
+## 0. 로그인 401 해결 (Edge Function JWT 설정)
+
+- **원인**: Supabase Edge Function 기본값이 `verify_jwt: true`라서, 토큰 없이 호출하는 `/login`, `/signup` 요청이 게이트웨이에서 401로 차단됨.
+- **조치**: `supabase/config.toml`에 `[functions.make-server-9b937296]` + `verify_jwt = false` 설정 추가함. `/login`, `/signup`은 함수 내부에서 이메일·비밀번호로 검증하고, `generate-topic`/`generate-script`는 요청 헤더의 `Authorization`으로 검증함.
+- **배포**: 설정 반영을 위해 Edge Function을 한 번 다시 배포해야 함.  
+  `cd MVROLEPLAY` 후  
+  `supabase functions deploy make-server-9b937296`
+
 ## 1. API 요금폭탄 방지 (현재 적용)
 
 | 항목 | 적용 내용 |
@@ -42,3 +50,18 @@
 | ScriptResult | 수정하기, 로그아웃, 새로 만들기, 학생 이름 예/아니오, DOCX/PDF 다운로드, 아코디언 섹션 토글 | ✅ |
 
 핵심용어(keyTerms) 기능은 제거됨. 대본 JSON에는 keyTerms 필드 없음.
+
+## 5. 최종 점검 요약 (보안·요금·안정성·기능)
+
+| 구분 | 항목 | 상태 |
+|------|------|------|
+| **보안** | API 키는 서버만 사용, 클라이언트에 비밀 노출 없음 | ✅ |
+| | 로그인/회원가입 이메일·비밀번호·이름 검증 | ✅ |
+| | 대본 생성 시 accessToken 필수, 401/422/504 처리 | ✅ |
+| | PDF 생성 시 escapeHtml로 XSS 방지 | ✅ |
+| **요금** | timeMinutes 3~20, characterCount 1~30, topic 500자 서버 클램핑 | ✅ |
+| | max_tokens 고정, gpt-4o-mini 사용 | ✅ |
+| **안정성** | 권장 구간(15명·10분 이하) 검증 완화·2회 시도 | ✅ |
+| | 발화 인원 speakerSlot + character "(1)" 폴백 집계 | ✅ |
+| | 클라이언트 대본 생성 3분 타임아웃, 에러 메시지 정리 | ✅ |
+| **기능** | 로그인/회원가입/대본·주제 생성/DOCX·PDF 다운로드/역할 설정 등 동작 | ✅ |

@@ -57,7 +57,7 @@ createTestAccount();
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS for all routes and methods
+// Enable CORS for all routes and methods (필수: Vercel 등 외부 도메인에서 호출 시)
 app.use(
   "/*",
   cors({
@@ -68,6 +68,11 @@ app.use(
     maxAge: 600,
   }),
 );
+
+// Preflight OPTIONS — 명시적 처리로 CORS 차단 방지
+app.options("/*", (c) => {
+  return c.body(null, 204);
+});
 
 // Health check endpoint
 app.get("/make-server-9b937296/health", (c) => {
@@ -439,6 +444,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
       'JSON IDENTIFIERS (required for validation):\n' +
       '- characters: each object MUST have "slot" (number 1 to N). Exactly N characters with slot 1,2,…,N.\n' +
       '- dialogue: each speech line MUST have "speakerSlot" (number 1 to N). Scene/location lines may omit speakerSlot. All N speakerSlots must appear at least once.\n\n' +
+      (characterCount >= 15 ? 'CRITICAL (N=' + characterCount + '): Before returning JSON, verify every dialogue line has "speakerSlot" and that numbers 1 through ' + characterCount + ' each appear at least once. Missing one = validation failure.\n\n' : '') +
       '---\n\n';
 
     // 과목별 프롬프트와 시스템 메시지 구성
@@ -558,14 +564,20 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
       return terms.some((term) => t.includes(term));
     }
 
-    function validateScriptQuality(script: Record<string, unknown>, charCount: number, formDataIn: { includeStudentTeacherLayout?: boolean; topic?: string }): { ok: boolean; reason?: string } {
+    // 권장(15명·10분 이하) = 매우 완화. 그 외 인원/시간 크면 완화. 아니면 기본.
+    const isRecommended = characterCount <= 15 && formData.timeMinutes <= 10;
+    const relaxedValidation = characterCount >= 15 || formData.timeMinutes >= 15;
+    const veryRelaxed = isRecommended || relaxedValidation;
+    const minSpokeRatio = isRecommended ? 0.5 : (relaxedValidation ? 0.75 : 1);
+    const skipTopicCheck = veryRelaxed;
+
+    function validateScriptQuality(script: Record<string, unknown>, charCount: number, formDataIn: { includeStudentTeacherLayout?: boolean; topic?: string }, relaxed: boolean): { ok: boolean; reason?: string } {
       const fullText = [script.title, script.situationAndRole, JSON.stringify(script.dialogue)].filter(Boolean).join(' ');
 
       for (const p of FORBIDDEN_PATTERNS) {
         if (fullText.includes(p)) return { ok: false, reason: '금지 패턴 포함: ' + p };
       }
 
-      // 학생/교사 자동 등장 강제 차단: includeStudentTeacherLayout === false 이면 교실 프레이밍 금지
       if (formDataIn.includeStudentTeacherLayout === false) {
         const chars = script.characters as Array<{ name?: string; description?: string }> | undefined;
         const charText = (chars ?? []).map((c) => `${c?.name ?? ''} ${c?.description ?? ''}`).join('\n');
@@ -573,7 +585,7 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         const dialogueText = (dialogue ?? []).map((d) => d?.line ?? '').join('\n');
         const joined = [script.title, script.situationAndRole, charText, dialogueText].filter(Boolean).join('\n');
         if (containsAny(joined, CLASSROOM_TERMS)) {
-          return { ok: false, reason: 'includeStudentTeacherLayout=false인데 교실/학생·교사 관련 용어 포함(학생·교사 자동 등장 금지)' };
+          return { ok: false, reason: 'includeStudentTeacherLayout=false인데 교실/학생·교사 관련 용어 포함' };
         }
       }
       for (const key of REQUIRED_SECTIONS) {
@@ -582,54 +594,63 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         }
       }
 
-      // 4) topic–script 일치성: 주제 핵심어 2개 이상이 본문에 등장해야 통과
-      const topicStr = (formDataIn.topic ?? '').toString().trim();
-      if (topicStr.length >= 2) {
-        const stop = new Set(['에서', '의', '을', '를', '은', '는', '이', '가', '과', '와', '및', '함정', '관련', '에', '다', '로', '으로', '하다', '있다']);
-        const topicTokens = topicStr
-          .split(/\s+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length >= 2 && !stop.has(s))
-          .slice(0, 6);
-        const dialogueArr = script.dialogue as Array<{ character?: string; line?: string }> | undefined;
-        const bodyText = [script.title, script.situationAndRole, ...(dialogueArr ?? []).map((d) => (d?.line ?? '').toString())].filter(Boolean).join('\n');
-        const hits = topicTokens.filter((tok) => bodyText.includes(tok)).length;
-        if (topicTokens.length >= 3 && hits < 2) {
-          return { ok: false, reason: `Topic alignment too low. topic tokens: ${topicTokens.join(',')}, hits in script: ${hits}` };
+      if (!skipTopicCheck) {
+        const topicStr = (formDataIn.topic ?? '').toString().trim();
+        if (topicStr.length >= 2) {
+          const stop = new Set(['에서', '의', '을', '를', '은', '는', '이', '가', '과', '와', '및', '함정', '관련', '에', '다', '로', '으로', '하다', '있다']);
+          const topicTokens = topicStr
+            .split(/\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length >= 2 && !stop.has(s))
+            .slice(0, 6);
+          const dialogueArr = script.dialogue as Array<{ character?: string; line?: string }> | undefined;
+          const bodyText = [script.title, script.situationAndRole, ...(dialogueArr ?? []).map((d) => (d?.line ?? '').toString())].filter(Boolean).join('\n');
+          const hits = topicTokens.filter((tok) => bodyText.includes(tok)).length;
+          if (topicTokens.length >= 3 && hits < 2) {
+            return { ok: false, reason: `Topic alignment too low. hits: ${hits}` };
+          }
         }
       }
 
       const chars = script.characters as Array<{ slot?: number; name?: string; description?: string }> | undefined;
       if (!chars || chars.length !== charCount) return { ok: false, reason: '등장인물 수 불일치' };
-      const placeholderRe = /^\(\d+\)$/;
+      const placeholderRe = /^\s*\(\s*\d+\s*\)\s*$/;
       const namesOk = chars.every((c) => typeof c.name === 'string' && placeholderRe.test(String(c.name).trim()));
       if (!namesOk) return { ok: false, reason: '등장인물 이름이 (1),(2),(3) 형식이 아님' };
 
-      // slot 기반: 1..N 각각 정확히 1개씩 존재
       const N = charCount;
       const slots = new Set<number>((chars ?? []).map((c) => c.slot).filter((s) => typeof s === 'number' && s >= 1 && s <= N));
-      if (slots.size !== N) return { ok: false, reason: `characters slot count mismatch: expected slots 1..${N}, got ${slots.size} unique slots` };
+      if (slots.size !== N) return { ok: false, reason: `characters slot count mismatch: expected 1..${N}, got ${slots.size}` };
       for (let i = 1; i <= N; i++) {
         if (!slots.has(i)) return { ok: false, reason: `characters missing slot ${i}` };
       }
 
-      // speakerSlot 기반 전원 발화: N명 모두 dialogue에서 speakerSlot으로 최소 1회 발화
       const dialogue = script.dialogue as Array<{ speakerSlot?: number; character?: string; line?: string }> | undefined;
       const spoke = new Set<number>();
+      const charNumRe = /\(\s*(\d+)\s*\)/;
       if (dialogue && dialogue.length > 0) {
         for (const item of dialogue) {
           if (typeof item.speakerSlot === 'number' && item.speakerSlot >= 1 && item.speakerSlot <= N) {
             spoke.add(item.speakerSlot);
+          } else {
+            const ch = String(item?.character ?? '').trim();
+            const match = ch.match(charNumRe);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num >= 1 && num <= N) spoke.add(num);
+            }
           }
         }
       }
-      if (spoke.size !== N) {
-        return { ok: false, reason: `Not all characters spoke. speakerSlot 1..${N} required; only ${spoke.size} spoke. Missing: ${Array.from({ length: N }, (_, i) => i + 1).filter((s) => !spoke.has(s)).join(', ')}` };
+      const minSpoke = relaxed ? Math.ceil(N * minSpokeRatio) : N;
+      if (spoke.size < minSpoke) {
+        return { ok: false, reason: `발화 인원 부족. 필요: ${minSpoke}명 이상, 실제: ${spoke.size}명` };
       }
       return { ok: true };
     }
 
-    const maxAttempts = 3;
+    // 권장 구간(15·10 이하)은 2회 시도, 그 외 완화 구간은 1회, 나머지 2~3회
+    const maxAttempts = isRecommended ? 2 : (relaxedValidation ? 1 : (characterCount >= 20 ? 2 : 3));
     let scriptData: Record<string, unknown> | null = null;
     let lastContent: string | null = null;
 
@@ -674,11 +695,18 @@ app.post("/make-server-9b937296/generate-script", async (c) => {
         continue;
       }
 
-      const validation = validateScriptQuality(scriptData, characterCount, formData);
+      const validation = validateScriptQuality(scriptData, characterCount, formData, veryRelaxed);
       if (validation.ok) break;
-      console.warn(`Script validation failed (attempt ${attempt}): ${validation.reason}`);
+      console.warn(`Script validation failed (attempt ${attempt}, veryRelaxed=${veryRelaxed}): ${validation.reason}`);
       if (attempt === maxAttempts) {
-        return c.json({ error: '대본 품질 검증 실패. 다시 시도해 주세요. (' + (validation.reason || '') + ')' }, 422);
+        const hint = !isRecommended
+          ? ' 인원 15명 이하·시간 10분 이하로 설정하면 성공 확률이 높아져요.'
+          : ' 한 번 더 시도해 주세요.';
+        return c.json({
+          error: '대본 품질 검증에 실패했어요.' + hint,
+          code: 'VALIDATION_FAILED',
+          detail: validation.reason,
+        }, 422);
       }
     }
 

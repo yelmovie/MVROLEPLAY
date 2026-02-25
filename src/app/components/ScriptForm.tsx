@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2, Plus, Trash2, Pencil, Check, X, Shuffle } from 'lucide-react';
+import { ArrowLeft, User as UserIcon, LogOut, Sparkles, Users, Clock, BookOpen, CheckCircle2, ChevronDown, ChevronUp, Lightbulb, Zap, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Subject, ScriptFormData, GeneratedScript, CustomCharacter } from '../App';
 import { Input } from './ui/input';
@@ -8,7 +8,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { Button } from './ui/button';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId } from '/utils/supabase/info';
 
 interface ScriptFormProps {
   subject: Subject;
@@ -101,42 +101,6 @@ function makeDefaultChars(count: number): CustomCharacter[] {
   }));
 }
 
-// 자동 이름 프리셋
-const namePresets: { label: string; emoji: string; names: string[] }[] = [
-  {
-    label: '한국 학생 이름',
-    emoji: '🧒',
-    names: ['민준', '서연', '지호', '유진', '재원', '하은', '도현', '나영', '성민', '수아',
-            '태양', '지아', '현우', '예린', '민서', '준혁', '소율', '동현', '채원', '시우',
-            '건우', '지윤', '하준', '서현', '민재', '예나', '우진', '다은', '진우', '혜리'],
-  },
-  {
-    label: '역할/직함',
-    emoji: '🎭',
-    names: ['나레이터', '선생님', '학생 1', '학생 2', '학생 3', '반장', '부반장', '전학생',
-            '학부모', '교장선생님', '친구 A', '친구 B', '친구 C', '이웃', '가게 주인',
-            '경찰관', '의사', '기자', '시장', '할머니', '할아버지', '형', '언니', '동생', '엄마',
-            '아빠', '코치', '심판', '관객', '사회자'],
-  },
-  {
-    label: '역사 인물풍',
-    emoji: '⚔️',
-    names: ['백성 갑', '백성 을', '양반 어르신', '선비', '왕', '신하', '장군', '병사',
-            '상인', '농부', '어부', '스님', '궁녀', '내관', '이방', '포졸', '의원',
-            '학동', '훈장', '향리', '감사', '원님', '사또', '봉이', '홍이', '돌쇠', '막동',
-            '분이', '순이'],
-  },
-  {
-    label: '영어 이름',
-    emoji: '🌍',
-    names: ['Minjun', 'Soyeon', 'Jake', 'Emma', 'Junho', 'Lily', 'Tom', 'Anna',
-            'Kevin', 'Mia', 'Daniel', 'Grace', 'Chris', 'Jenny', 'Sam', 'Amy',
-            'Teacher Kim', 'Narrator', 'Student A', 'Student B', 'Student C',
-            'Shop Owner', 'Doctor', 'Parent', 'Friend 1', 'Friend 2',
-            'Classmate', 'Principal', 'Librarian', 'Coach'],
-  },
-];
-
 export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: ScriptFormProps) {
   const [formData, setFormData] = useState<ScriptFormData>({
     subject,
@@ -156,49 +120,8 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [isGeneratingTopic, setIsGeneratingTopic] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'characters'>('settings');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [showPresetMenu, setShowPresetMenu] = useState(false);
-  const presetMenuRef = useRef<HTMLDivElement>(null);
 
-  // 프리셋 메뉴 외부 클릭 닫기
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (presetMenuRef.current && !presetMenuRef.current.contains(e.target as Node)) {
-        setShowPresetMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // 프리셋 자동 적용
-  const handleApplyPreset = (preset: typeof namePresets[number]) => {
-    setFormData(prev => ({
-      ...prev,
-      customCharacters: prev.customCharacters.map((char, i) => ({
-        ...char,
-        name: preset.names[i] ?? char.name,
-      })),
-    }));
-    setShowPresetMenu(false);
-    toast.success(`'${preset.label}' 이름이 적용되었습니다!`);
-  };
-
-  // 이름 초기화
-  const handleResetNames = () => {
-    setFormData(prev => ({
-      ...prev,
-      customCharacters: prev.customCharacters.map((char, i) => ({
-        ...char,
-        name: `등장인물 ${i + 1}`,
-      })),
-    }));
-    setShowPresetMenu(false);
-    toast.success('이름이 초기화되었습니다.');
-  };
-
-  // ── 캐릭터 count 변경 시 목록 동기화 ──────────────────────────
+  // 캐릭터 count 변경 시 목록 동기화 (기본 설정 인원수와 연동)
   const syncCharacters = useCallback((newCount: number, prev: CustomCharacter[]) => {
     if (newCount > prev.length) {
       const extra = Array.from({ length: newCount - prev.length }, (_, i) => ({
@@ -220,51 +143,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
     }));
   };
 
-  const handleAddCharacter = () => {
-    if (formData.customCharacters.length >= 30) return;
-    const newNum = formData.customCharacters.length + 1;
-    const newChar: CustomCharacter = {
-      id: `char-${Date.now()}`,
-      number: newNum,
-      name: `등장인물 ${newNum}`,
-    };
-    setFormData(prev => ({
-      ...prev,
-      characterCount: prev.customCharacters.length + 1,
-      customCharacters: [...prev.customCharacters, newChar],
-    }));
-  };
-
-  const handleDeleteCharacter = (id: string) => {
-    setFormData(prev => {
-      const filtered = prev.customCharacters.filter(c => c.id !== id)
-        .map((c, i) => ({ ...c, number: i + 1 }));
-      return { ...prev, characterCount: filtered.length, customCharacters: filtered };
-    });
-  };
-
-  const handleStartEdit = (char: CustomCharacter) => {
-    setEditingId(char.id);
-    setEditingName(char.name);
-  };
-
-  const handleConfirmEdit = () => {
-    if (!editingId) return;
-    setFormData(prev => ({
-      ...prev,
-      customCharacters: prev.customCharacters.map(c =>
-        c.id === editingId ? { ...c, name: editingName.trim() || c.name } : c
-      ),
-    }));
-    setEditingId(null);
-    setEditingName('');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingName('');
-  };
-
   const handleTopicClick = (topic: string) => {
     setFormData({ ...formData, topic, topicGeneratedByAI: false });
   };
@@ -275,14 +153,19 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       return;
     }
 
+    const token = user?.accessToken;
+    if (!token) {
+      toast.error('로그인이 만료되었습니다.', { description: '다시 로그인해 주세요.' });
+      return;
+    }
+
     setIsGeneratingTopic(true);
 
     try {
-      const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-topic`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -290,6 +173,12 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
           gradeLevel: formData.gradeLevel,
         }),
       });
+
+      if (response.status === 401) {
+        toast.error('로그인이 만료되었습니다.', { description: '다시 로그인해 주세요.' });
+        setIsGeneratingTopic(false);
+        return;
+      }
 
       if (!response.ok) {
         let errMsg = '알 수 없는 오류';
@@ -321,19 +210,51 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       toast.error('로그인이 필요합니다.');
       return;
     }
+    if (!user.accessToken) {
+      toast.error('로그인이 만료되었습니다.', { description: '다시 로그인해 주세요.' });
+      return;
+    }
 
     setIsGenerating(true);
-    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3분 (대본 생성은 30~90초 소요 가능)
+
     try {
-      const authToken = user.accessToken || publicAnonKey;
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-9b937296/generate-script`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          'Authorization': `Bearer ${user.accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, customCharacters: [] }),
       });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        toast.error('로그인이 만료되었습니다.', { description: '다시 로그인해 주세요.' });
+        setIsGenerating(false);
+        return;
+      }
+      if (response.status === 504) {
+        toast.error('서버 응답 시간 초과', {
+          description: '인원 수나 시간을 줄이거나 잠시 후 다시 시도해 주세요.',
+        });
+        setIsGenerating(false);
+        return;
+      }
+
+      if (response.status === 422) {
+        let errMsg = '품질 검증에 실패했어요. 인원을 15명 이하로 줄이거나 주제를 바꿔 다시 시도해 주세요.';
+        try {
+          const errorData = await response.json();
+          if (errorData?.error) errMsg = errorData.error;
+        } catch { /* use default */ }
+        toast.error('대본 생성 실패', { description: errMsg });
+        setIsGenerating(false);
+        return;
+      }
 
       if (!response.ok) {
         let errMsg = '알 수 없는 오류';
@@ -360,8 +281,18 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
       });
       setIsGenerating(false);
       onSubmit(script);
-    } catch {
-      toast.error('대본 생성 중 오류가 발생했습니다.');
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      if (isAbort) {
+        toast.error('요청 시간이 초과되었습니다.', {
+          description: '인원 수나 시간을 줄이거나 잠시 후 다시 시도해 주세요.',
+        });
+      } else {
+        toast.error('대본 생성 중 오류가 발생했습니다.', {
+          description: '네트워크를 확인하거나 잠시 후 다시 시도해 주세요.',
+        });
+      }
       setIsGenerating(false);
     }
   };
@@ -649,7 +580,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                                 }
                                 const parsed = parseInt(raw, 10);
                                 if (!isNaN(parsed)) {
-                                  setFormData(prev => ({ ...prev, timeMinutes: Math.min(20, Math.max(3, parsed)) }));
+                                  setFormData(prev => ({ ...prev, timeMinutes: parsed }));
                                 }
                               }}
                               onBlur={(e) => {
@@ -660,6 +591,12 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                               className="pl-10"
                             />
                           </div>
+                        </div>
+
+                        {/* 권장 안내 — 그리드 전체 가로로 넓게 */}
+                        <div className="col-span-2 sm:col-span-3 mt-4 px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800 min-w-0">
+                          <p className="font-semibold mb-1">💡 권장 설정</p>
+                          <p className="text-[#047857] leading-relaxed">인원 <strong>15명 이하</strong>, 시간 <strong>10분 이하</strong>로 하면 생성이 빠르고 안정적이에요. 인원·시간이 크면 검증을 완화해 한 번만 생성합니다.</p>
                         </div>
                       </div>
                     </div>
@@ -672,170 +609,27 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                     exit={{ opacity: 0, x: 10 }}
                     transition={{ duration: 0.2 }}
                   >
-                    {/* 역할 설정 탭 */}
+                    {/* 역할 설정 탭 — 극에 맞는 역할/이름은 AI가 설정, 사용자는 인원수만 */}
                     <div className="bg-white rounded-2xl shadow-md border-2 border-gray-200 overflow-hidden">
-                      <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b-2 border-gray-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <p className="text-sm font-bold text-[#1F2937]">역할 이름 직접 설정</p>
-                            <p className="text-xs text-[#6B7280] mt-0.5">이름을 클릭하여 수정하거나 자동 설정을 사용해요</p>
+                      <div className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] flex items-center justify-center text-white">
+                            <Sparkles className="w-5 h-5" />
                           </div>
-                          <span className="px-3 py-1 rounded-full bg-purple-100 text-[#7C3AED] text-xs font-bold border border-purple-200">
-                            {formData.customCharacters.length} / 30
-                          </span>
+                          <div>
+                            <p className="text-base font-bold text-[#1F2937]">역할은 AI가 극에 맞게 정해요</p>
+                            <p className="text-xs text-[#6B7280] mt-0.5">대본 주제에 맞는 이름·직함을 자동으로 설정합니다</p>
+                          </div>
                         </div>
-
-                        {/* 자동 설정 버튼 */}
-                        <div className="relative" ref={presetMenuRef}>
-                          <button
-                            type="button"
-                            onClick={() => setShowPresetMenu(prev => !prev)}
-                            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 text-[#7C3AED] text-sm font-bold transition-all shadow-sm"
-                          >
-                            <Shuffle className="w-4 h-4" />
-                            <span>이름 자동 설정</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showPresetMenu ? 'rotate-180' : ''}`} />
-                          </button>
-
-                          <AnimatePresence>
-                            {showPresetMenu && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                                transition={{ duration: 0.15 }}
-                                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border-2 border-purple-200 shadow-xl z-30 overflow-hidden"
-                              >
-                                <div className="p-2">
-                                  {namePresets.map((preset) => (
-                                    <button
-                                      key={preset.label}
-                                      type="button"
-                                      onClick={() => handleApplyPreset(preset)}
-                                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-purple-50 transition-all text-left group"
-                                    >
-                                      <span className="text-xl">{preset.emoji}</span>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-[#1F2937] group-hover:text-[#7C3AED] transition-colors">
-                                          {preset.label}
-                                        </p>
-                                        <p className="text-xs text-[#9CA3AF] truncate">
-                                          {preset.names.slice(0, 5).join(', ')}...
-                                        </p>
-                                      </div>
-                                    </button>
-                                  ))}
-                                  <div className="border-t border-gray-100 mt-1 pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={handleResetNames}
-                                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 transition-all text-left"
-                                    >
-                                      <span className="text-xl">🔄</span>
-                                      <p className="text-sm font-bold text-[#EF4444]">이름 초기화</p>
-                                    </button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                        <div className="p-4 rounded-xl bg-purple-50 border-2 border-purple-100 text-sm text-[#1F2937] leading-relaxed">
+                          <p className="font-semibold text-[#7C3AED] mb-2">참여 인원수만 선택하세요</p>
+                          <p className="text-[#6B7280]">위 <strong>기본 설정</strong> 탭에서 정한 인원수({formData.characterCount}명)만큼 등장인물이 만들어집니다. 생성된 대본 결과 화면에서, 원하면 <strong>학생 이름을 괄호 안에 추가</strong>할 수 있어요.</p>
                         </div>
-                      </div>
-
-                      <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
-                        <AnimatePresence>
-                          {formData.customCharacters.map((char) => (
-                            <motion.div
-                              key={char.id}
-                              initial={{ opacity: 0, y: -6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, x: 20 }}
-                              transition={{ duration: 0.15 }}
-                              className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all group ${
-                                editingId === char.id
-                                  ? 'border-[#7C3AED] bg-purple-50'
-                                  : 'border-gray-100 hover:border-purple-200 bg-gray-50 hover:bg-purple-50'
-                              }`}
-                            >
-                              {/* 번호 뱃지 */}
-                              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A78BFA] text-white text-xs font-bold flex items-center justify-center">
-                                {char.number}
-                              </div>
-
-                              {/* 이름 (편집 or 표시) - 클릭 시 바로 편집 */}
-                              {editingId === char.id ? (
-                                <input
-                                  autoFocus
-                                  className="flex-1 text-sm font-semibold text-[#1F2937] bg-white border-2 border-[#7C3AED] rounded-lg px-2 py-1 outline-none"
-                                  value={editingName}
-                                  onChange={(e) => setEditingName(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleConfirmEdit();
-                                    if (e.key === 'Escape') handleCancelEdit();
-                                  }}
-                                  maxLength={20}
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEdit(char)}
-                                  className="flex-1 text-left text-sm font-semibold text-[#1F2937] truncate flex items-center gap-1.5 group/name"
-                                  title="클릭하여 이름 수정"
-                                >
-                                  <span className="truncate">{char.name}</span>
-                                  <Pencil className="w-3 h-3 text-[#C4B5FD] opacity-0 group-hover/name:opacity-100 flex-shrink-0 transition-opacity" />
-                                </button>
-                              )}
-
-                              {/* 확인/취소 or 삭제 버튼 */}
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                {editingId === char.id ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={handleConfirmEdit}
-                                      className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-600 flex items-center justify-center transition-all"
-                                      title="확인 (Enter)"
-                                    >
-                                      <Check className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={handleCancelEdit}
-                                      className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all"
-                                      title="취소 (Esc)"
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteCharacter(char.id)}
-                                    disabled={formData.customCharacters.length <= 1}
-                                    className="w-7 h-7 rounded-lg bg-transparent hover:bg-red-100 text-gray-300 hover:text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
-                                    title="삭제"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* 역할 추가 버튼 */}
-                      <div className="p-3 border-t-2 border-gray-100">
-                        <button
-                          type="button"
-                          onClick={handleAddCharacter}
-                          disabled={formData.customCharacters.length >= 30}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-purple-300 hover:border-purple-400 hover:bg-purple-50 text-[#7C3AED] text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Plus className="w-4 h-4" />
-                          역할 추가
-                        </button>
+                        <div className="mt-4 flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-100">
+                          <span className="text-sm font-bold text-[#1F2937]">이번 대본 등장인물 수</span>
+                          <span className="px-3 py-1 rounded-full bg-[#7C3AED] text-white text-sm font-bold">{formData.characterCount}명</span>
+                        </div>
+                        <p className="text-xs text-[#9CA3AF] mt-3 text-center">인원 변경은 기본 설정 탭에서 해주세요</p>
                       </div>
                     </div>
                   </motion.div>
@@ -984,8 +778,7 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] mt-2"></div>
                     <div>
-                      <span className="font-semibold text-[#1F2937]">등장인물:</span>{' '}
-                      {formData.customCharacters.map(c => `${c.number}. ${c.name}`).join(' / ')}
+                      <span className="font-semibold text-[#1F2937]">등장인물:</span> {formData.characterCount}명 (AI가 극에 맞게 설정)
                     </div>
                   </div>
                 </div>
@@ -1029,12 +822,6 @@ export function ScriptForm({ subject, onBack, onSubmit, user, onLogout }: Script
                     <div className="text-2xl font-bold text-[#10B981] mb-1">100%</div>
                     <div className="text-xs text-[#6B7280] font-semibold">맞춤 제작</div>
                   </div>
-                </div>
-                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                  <span className="text-base mt-0.5 flex-shrink-0">⏳</span>
-                  <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                    시간이 길거나 인원이 많을수록 생성에 최대 1~2분이 걸릴 수 있어요. 조금만 기다려 주세요!
-                  </p>
                 </div>
               </div>
             </motion.div>
