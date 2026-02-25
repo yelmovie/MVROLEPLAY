@@ -41,13 +41,18 @@ export interface GeneratedScript {
   formData: ScriptFormData;
   title: string;
   situationAndRole: string;
-  keyTerms: Array<{ term: string; definition: string }>;
-  characters: Array<{ name: string; description: string }>;
-  dialogue: Array<{ character: string; line: string; color?: string }>;
+  /** 제거됨: 핵심용어 기능 미사용. 하위 호환용 optional */
+  keyTerms?: Array<{ term: string; definition: string }>;
+  characters: Array<{ slot?: number; name: string; description: string }>;
+  dialogue: Array<{ speakerSlot?: number; character: string; line: string; color?: string }>;
   teachingPoints: string[];
   teacherTips: string[];
   achievementStandards: { subject: string; standard: string };
   closingQuestions: string[];
+  /** 교사용 참고: (1),(2),(3)에 매칭되는 추천 이름 목록. 본문에는 넣지 않고 이 섹션으로만 표시 */
+  recommendedNamesForTeacher?: string[];
+  /** 평가 체크: 이해/참여/표현 각 3수준 루브릭 (교육 안전 프롬프트 7) */
+  evaluationRubric?: { 이해?: string[]; 참여?: string[]; 표현?: string[] };
 }
 
 export default function App() {

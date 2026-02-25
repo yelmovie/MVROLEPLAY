@@ -7,12 +7,6 @@ import {
   AlignmentType,
   BorderStyle,
   ShadingType,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  VerticalAlign,
-  TableBorders,
   PageOrientation,
 } from 'docx';
 import { GeneratedScript } from '../app/App';
@@ -34,6 +28,13 @@ const GREEN = '10B981';
 const AMBER = 'FBBF24';
 const PINK = 'EC4899';
 const INDIGO = '6366F1';
+
+/** 빈 문자열/공백만 있는 줄 제거, 연속 공백 정리 */
+function cleanLines(lines: string[]): string[] {
+  return (lines ?? [])
+    .map((l) => (l ?? '').replace(/\s+/g, ' ').trim())
+    .filter((l) => l.length > 0);
+}
 
 function heading(text: string, level: HeadingLevel = HeadingLevel.HEADING_2, color = PURPLE) {
   return new Paragraph({
@@ -135,42 +136,15 @@ function dialogueLine(character: string, line: string, colorIdx: number) {
   });
 }
 
-function keyTermRow(term: string, definition: string) {
-  return new TableRow({
-    children: [
-      new TableCell({
-        width: { size: 2500, type: WidthType.DXA },
-        shading: { type: ShadingType.SOLID, color: 'EDE9FE', fill: 'EDE9FE' },
-        verticalAlign: VerticalAlign.CENTER,
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({ text: term, bold: true, color: PURPLE, size: 20, font: 'Malgun Gothic' }),
-            ],
-            alignment: AlignmentType.CENTER,
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: 6500, type: WidthType.DXA },
-        verticalAlign: VerticalAlign.CENTER,
-        children: [
-          new Paragraph({
-            children: [
-              new TextRun({ text: definition, color: '374151', size: 20, font: 'Malgun Gothic' }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
-}
-
 export async function downloadScriptAsDOCX(script: GeneratedScript) {
   const charColorIdxMap = new Map<string, number>();
-  script.characters.forEach((c, i) => charColorIdxMap.set(c.name, i));
+  const sortedChars = [...script.characters].sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+  sortedChars.forEach((c, i) => {
+    charColorIdxMap.set(c.name, i);
+    if (typeof c.slot === 'number') charColorIdxMap.set(String(c.slot), i);
+  });
 
-  const children: (Paragraph | Table)[] = [];
+  const children: Paragraph[] = [];
 
   // ─── 커버 ───────────────────────────────────────────────────────
   children.push(
@@ -276,29 +250,6 @@ export async function downloadScriptAsDOCX(script: GeneratedScript) {
   });
   children.push(divider());
 
-  // ─── 핵심 용어 ─────────────────────────────────────────────────
-  children.push(sectionTitle('📖', '핵심 용어', AMBER));
-  const termTable = new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: TableBorders.NONE,
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            shading: { type: ShadingType.SOLID, color: PURPLE, fill: PURPLE },
-            children: [new Paragraph({ children: [new TextRun({ text: '용어', bold: true, color: 'FFFFFF', size: 20, font: 'Malgun Gothic' })] })],
-          }),
-          new TableCell({
-            shading: { type: ShadingType.SOLID, color: PURPLE, fill: PURPLE },
-            children: [new Paragraph({ children: [new TextRun({ text: '설명', bold: true, color: 'FFFFFF', size: 20, font: 'Malgun Gothic' })] })],
-          }),
-        ],
-      }),
-      ...script.keyTerms.map(t => keyTermRow(t.term, t.definition)),
-    ],
-  });
-  children.push(termTable, new Paragraph({ spacing: { after: 160 } }));
-
   // ─── 대본 ──────────────────────────────────────────────────────
   children.push(
     sectionTitle('🎬', '대본 내용', PURPLE),
@@ -312,20 +263,32 @@ export async function downloadScriptAsDOCX(script: GeneratedScript) {
   );
 
   script.dialogue.forEach((line) => {
-    const idx = charColorIdxMap.get(line.character) ?? 0;
-    children.push(dialogueLine(line.character, line.line, idx));
+    const text = (line.line ?? '').replace(/\s+/g, ' ').trim();
+    if (text.length === 0) return; // 빈 줄은 문서에 넣지 않음
+    const idx =
+      typeof line.speakerSlot === 'number'
+        ? (line.speakerSlot - 1) % script.characters.length
+        : charColorIdxMap.get(line.character) ?? 0;
+    const charLabel = line.character || `(${line.speakerSlot ?? '?'})`;
+    children.push(dialogueLine(charLabel, text, idx));
   });
   children.push(divider());
 
-  // ─── 수업 포인트 ────────────────────────────────────────────────
-  children.push(sectionTitle('📝', '수업 포인트', AMBER));
-  script.teachingPoints.forEach((pt, i) => children.push(bulletItem(pt, i + 1)));
-  children.push(new Paragraph({ spacing: { after: 120 } }));
+  // ─── 수업 포인트 (빈 배열이면 섹션 생략)
+  const teachingPoints = cleanLines(script.teachingPoints ?? []);
+  if (teachingPoints.length > 0) {
+    children.push(sectionTitle('📝', '수업 포인트', AMBER));
+    teachingPoints.forEach((pt, i) => children.push(bulletItem(pt, i + 1)));
+    children.push(new Paragraph({ spacing: { after: 120 } }));
+  }
 
-  // ─── 교사 팁 ────────────────────────────────────────────────────
-  children.push(sectionTitle('💡', '교사용 지도 팁', GREEN));
-  script.teacherTips.forEach(tip => children.push(bulletItem(`✓  ${tip}`)));
-  children.push(divider());
+  // ─── 교사 팁 (빈 배열이면 섹션 생략)
+  const teacherTips = cleanLines(script.teacherTips ?? []);
+  if (teacherTips.length > 0) {
+    children.push(sectionTitle('💡', '교사용 지도 팁', GREEN));
+    teacherTips.forEach((tip) => children.push(bulletItem(`✓  ${tip}`)));
+    children.push(divider());
+  }
 
   // ─── 성취기준 ───────────────────────────────────────────────────
   if (script.formData.includeAchievementStandards) {
@@ -344,21 +307,24 @@ export async function downloadScriptAsDOCX(script: GeneratedScript) {
     );
   }
 
-  // ─── 마무리 질문 ────────────────────────────────────────────────
-  children.push(sectionTitle('💬', '마무리 질문', PINK));
-  script.closingQuestions.forEach((q, i) => {
-    children.push(
-      new Paragraph({
-        spacing: { before: 60, after: 60 },
-        indent: { left: 160, right: 160 },
-        shading: { type: ShadingType.SOLID, color: 'FDF2F8', fill: 'FDF2F8' },
-        border: { left: { style: BorderStyle.SINGLE, size: 8, color: PINK } },
-        children: [
-          new TextRun({ text: `Q${i + 1}.  ${q}`, color: '9D174D', size: 20, font: 'Malgun Gothic' }),
-        ],
-      })
-    );
-  });
+  // ─── 마무리 질문 (빈 배열이면 섹션 생략)
+  const closingQuestions = cleanLines(script.closingQuestions ?? []);
+  if (closingQuestions.length > 0) {
+    children.push(sectionTitle('💬', '마무리 질문', PINK));
+    closingQuestions.forEach((q, i) => {
+      children.push(
+        new Paragraph({
+          spacing: { before: 60, after: 60 },
+          indent: { left: 160, right: 160 },
+          shading: { type: ShadingType.SOLID, color: 'FDF2F8', fill: 'FDF2F8' },
+          border: { left: { style: BorderStyle.SINGLE, size: 8, color: PINK } },
+          children: [
+            new TextRun({ text: `Q${i + 1}.  ${q}`, color: '9D174D', size: 20, font: 'Malgun Gothic' }),
+          ],
+        })
+      );
+    });
+  }
 
   // ─── 문서 생성 ──────────────────────────────────────────────────
   const doc = new Document({

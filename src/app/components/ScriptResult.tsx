@@ -29,9 +29,14 @@ const characterColors = [
 export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: ScriptResultProps) {
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [isDownloadingDOCX, setIsDownloadingDOCX] = useState(false);
+  /** null: 아직 안 물음, 'yes': 괄호 안 이름 추가함, 'no': 추가 안 함 */
+  const [studentNamesChoice, setStudentNamesChoice] = useState<null | 'yes' | 'no'>(null);
+  /** (1),(2),(3)에 대응하는 학생 이름. choice === 'yes'일 때만 사용 */
+  const [studentNames, setStudentNames] = useState<string[]>(() =>
+    Array(script.characters?.length ?? 0).fill('')
+  );
   const [expandedSections, setExpandedSections] = useState({
     situation: true,
-    keyTerms: false,
     characters: false,
     dialogue: true,
     teachingPoints: false,
@@ -179,6 +184,80 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
           </div>
         </motion.div>
 
+        {/* 학생 이름 괄호 추가 여부 질문 */}
+        {studentNamesChoice === null && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 rounded-2xl shadow-md border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50"
+          >
+            <p className="text-base font-bold text-[#1F2937] mb-4">학생 이름을 괄호 안에 추가로 표시할까요?</p>
+            <p className="text-sm text-[#6B7280] mb-5">역할은 AI가 정해 두었어요. 원하면 각 역할에 맞는 학생 이름을 입력해 두면, 교사용 참고 목록으로 볼 수 있어요.</p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStudentNamesChoice('yes');
+                  setStudentNames(Array(script.characters?.length ?? 0).fill(''));
+                }}
+                className="px-6 py-3 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold shadow-md transition-all"
+              >
+                예, 추가할게요
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentNamesChoice('no')}
+                className="px-6 py-3 rounded-xl bg-white border-2 border-gray-300 hover:border-gray-400 text-[#1F2937] font-bold transition-all"
+              >
+                아니오, 괜찮아요
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 학생 이름 괄호 입력 (예 선택 시) */}
+        {studentNamesChoice === 'yes' && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 rounded-2xl border-2 border-amber-200 bg-amber-50 overflow-hidden shadow-md"
+          >
+            <div className="p-4 border-b-2 border-amber-200 bg-amber-100/80">
+              <h3 className="text-lg font-bold text-amber-800">📋 교사용 참고: 학생 이름 (괄호에 표시)</h3>
+              <p className="text-sm text-amber-700 mt-1">각 역할 번호에 맞는 학생 이름을 입력하세요. 대본 본문에는 (1), (2), (3)…만 있고, 아래 목록으로 누가 누구인지 확인할 수 있어요.</p>
+            </div>
+            <div className="p-4 space-y-3">
+              {script.characters.map((char, i) => (
+                <div key={char.name} className="flex items-center gap-3 flex-wrap">
+                  <span className="w-8 h-8 rounded-full bg-amber-400 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                    {char.name}
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="학생 이름 입력"
+                    value={studentNames[i] ?? ''}
+                    onChange={(e) => {
+                      const next = [...studentNames];
+                      next[i] = e.target.value.slice(0, 20);
+                      setStudentNames(next);
+                    }}
+                    className="flex-1 min-w-[120px] px-3 py-2 rounded-xl border-2 border-amber-200 bg-white text-[#1F2937] font-medium placeholder:text-gray-400"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="p-4 pt-0 flex flex-wrap gap-2">
+              <span className="text-sm font-bold text-amber-800 mr-2">매칭:</span>
+              {script.characters.map((char, i) => (
+                <span key={char.name} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border-2 border-amber-300 text-sm font-semibold text-[#1F2937]">
+                  <span className="text-amber-600">{char.name}</span>
+                  <span>{studentNames[i]?.trim() || '(빈칸)'}</span>
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Title and Download */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -237,44 +316,23 @@ export function ScriptResult({ script, onBack, onNewScript, user, onLogout }: Sc
             </p>
           </Section>
 
-          {/* 2. Key Terms */}
-          <Section
-            icon={<Sparkles className="w-6 h-6" />}
-            title="📖 핵심 용어"
-            expanded={expandedSections.keyTerms}
-            onToggle={() => toggleSection('keyTerms')}
-          >
-            <div className="flex flex-wrap gap-3">
-              {script.keyTerms.map((term, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="group"
-                >
-                  <div className="px-4 py-2 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-300 hover:border-purple-400 transition-all cursor-pointer">
-                    <span className="font-bold text-[#7C3AED]">{term.term}</span>
-                  </div>
-                  <div className="hidden group-hover:block absolute z-10 mt-2 p-3 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-w-xs">
-                    <p className="text-sm text-[#6B7280]">{term.definition}</p>
-                  </div>
-                </motion.div>
-              ))}
+          {/* 교사용 참고: 추천 이름 목록 — 본문에는 (1)(2)(3)만, 이름은 이 섹션으로만 */}
+          {script.recommendedNamesForTeacher && script.recommendedNamesForTeacher.length > 0 && (
+            <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 overflow-hidden shadow-md">
+              <div className="p-4 border-b-2 border-amber-200 bg-amber-100/80">
+                <h3 className="text-lg font-bold text-amber-800">📋 교사용 참고: 추천 이름 목록</h3>
+                <p className="text-sm text-amber-700 mt-1">대본 본문에는 (1), (2), (3)…만 표기됩니다. 아래 이름을 배역에 맞게 할당해 사용하세요.</p>
+              </div>
+              <div className="p-4 flex flex-wrap gap-3">
+                {script.recommendedNamesForTeacher.map((name, i) => (
+                  <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border-2 border-amber-300 text-sm font-semibold text-[#1F2937]">
+                    <span className="w-6 h-6 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold">{(i + 1)}</span>
+                    {name}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="mt-6 space-y-3">
-              {script.keyTerms.map((term, index) => (
-                <div key={index} className="p-4 rounded-2xl bg-purple-50 border-2 border-purple-200">
-                  <div className="flex items-start gap-3">
-                    <span className="px-3 py-1 bg-gradient-to-r from-[#7C3AED] to-[#A78BFA] text-white rounded-full text-sm font-bold">
-                      {term.term}
-                    </span>
-                    <p className="text-[#1F2937] flex-1 font-medium">{term.definition}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
+          )}
 
           {/* 3. Characters */}
           <Section
